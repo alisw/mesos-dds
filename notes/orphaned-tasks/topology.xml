@@ -1,0 +1,30 @@
+<topology id="myTopology">
+
+   <!-- Definition of tasks, properties and collections | app1 -l -n --taskIndex %taskIndex% --collectionIndex %collectionIndex% -->
+   <var id="appNameVar" value="/bin/sleep 120" />
+
+   <property id="property1" />
+   <property id="property2" />
+
+   <decltask id="task1">
+      <exe reachable="true">${appNameVar}</exe>
+      <properties>
+         <id access="read">property1</id>
+         <id access="readwrite">property2</id>
+      </properties>
+   </decltask>
+
+   <decltask id="task2">
+      <exe>/bin/sleep 121</exe>
+      <properties>
+         <id access="write">property1</id>
+      </properties>
+   </decltask>
+
+   <!-- Definition of the topology itself, where also groups can be defined -->
+   <main id="main">
+      <task>task1</task>
+      <task>task2</task>
+   </main>
+
+</topology>
