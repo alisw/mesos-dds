@@ -3,6 +3,9 @@
 
 #include <vector>
 #include <deque>
+
+#include "boost/foreach.hpp"
+
 #include <mesos/scheduler.hpp>
 #include <mesos/resources.hpp>
 
