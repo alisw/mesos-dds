@@ -45,7 +45,7 @@ int main (int argc, char ** argv) {
 
       cout << "DDS-Intercom onSubmit: " << endl;
 
-      //protocol.stop();
+      protocol.stop();
     });
 
     protocol.onMessage([](const SMessage& _message){
