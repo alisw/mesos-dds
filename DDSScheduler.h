@@ -3,20 +3,29 @@
 
 #include <vector>
 #include <deque>
+#include <condition_variable>
+#include <mutex>
 
 #include "boost/foreach.hpp"
 
 #include <mesos/scheduler.hpp>
 #include <mesos/resources.hpp>
 
+struct DDSSubmitInfo {
+    uint32_t m_nInstances;          ///< Number of instances.
+    std::string m_cfgFilePath;      ///< Path to the configuration file.
+    std::string m_id;               ///< ID for communication with DDS commander.
+    std::string m_wrkPackagePath;   ///< A full path of the agent worker package, which needs to be deployed.
+};
+
 class DDSScheduler
   : public mesos::Scheduler 
 {
 public:
     
-    DDSScheduler(const mesos::ExecutorInfo& executorInfo, 
-                const mesos::Resources& resourcesPerTask,
-                size_t numTasks);
+    DDSScheduler(std::condition_variable& mesosStarted,
+                const mesos::ExecutorInfo& executorInfo, 
+                const mesos::Resources& resourcesPerTask);
         
     /*
      * Empty virtual destructor (necessary to instantiate subclasses).
@@ -127,16 +136,27 @@ public:
      * callback.
      */
     virtual void error(mesos::SchedulerDriver* driver, const std::string& message) override;
-    
+
+public:
+
+    // Setters
+    void addAgents(const DDSSubmitInfo& submit);
+
 private:
-    
+
+    // Condition variable to synchronise with DDS
+    std::condition_variable& mesosStarted;
+
+    // Mutex to protect method calls
+    std::mutex ddsMutex;
+
     const mesos::ExecutorInfo& executorInfo;
     const mesos::Resources& resourcesPerTask;
-    const size_t numTasks;
-    /*size_t nextTaskId;
+
+    // Queues and Lists
     std::deque<mesos::TaskInfo> waitingTasks;
     std::vector<mesos::TaskInfo> runningTasks;
-    std::vector<mesos::TaskStatus> finishedTasks;*/
+    std::vector<mesos::TaskStatus> finishedTasks;
 };
 
 #endif  /* DDSScheduler_H */
