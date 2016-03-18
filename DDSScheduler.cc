@@ -11,10 +11,12 @@ void logToFile(std::string);
 
 DDSScheduler::DDSScheduler(condition_variable &mesosStarted,
                            const ExecutorInfo &executorInfo,
-                           const Resources &resourcesPerTask)
+                           const Resources &resourcesPerTask,
+                           const ContainerInfo& containerInfo)
         : mesosStarted(mesosStarted),
           executorInfo(executorInfo),
-          resourcesPerTask(resourcesPerTask)
+          resourcesPerTask(resourcesPerTask),
+          containerInfo ( containerInfo )
 {
     logToFile("DDS Framework Constructor");
 }
@@ -53,7 +55,10 @@ void DDSScheduler::resourceOffers(
         SchedulerDriver *driver,
         const vector <Offer> &offers
 ) {
+    lock_guard<std::mutex> lock(ddsMutex);
     logToFile("DDS Framework Resource Offers");
+
+
 
     for (const Offer& offer : offers) {
 
@@ -97,6 +102,7 @@ void DDSScheduler::statusUpdate(
         SchedulerDriver *driver,
         const TaskStatus &status
 ) {
+    lock_guard<std::mutex> lock(ddsMutex);
     logToFile("DDS Framework Status Update");
 
     switch (status.state()) {
@@ -133,6 +139,7 @@ void DDSScheduler::statusUpdate(
                                                           return taskInfo.task_id() == status.task_id();
                                                       }
             );
+            logToFile("Reason: " + status.message());
             if (item == runningTasks.end()) {
                 logToFile("DDS Framework: STATUPDATE ERROR: TASK NOT FOUND!!!!! Cannot ReQueue");
             } else {
@@ -194,6 +201,7 @@ void DDSScheduler::addAgents(const DDSSubmitInfo& submit) {
         taskInfo.mutable_task_id()->set_value(to_string(i));
         //taskInfo.mutable_slave_id()->MergeFrom(offer.slave_id());
         taskInfo.mutable_resources()->MergeFrom(resourcesPerTask);
+        taskInfo.mutable_container()->MergeFrom(containerInfo);
 
         // Either execute command or executor
         CommandInfo commandInfo;

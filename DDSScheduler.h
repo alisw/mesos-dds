@@ -25,8 +25,9 @@ public:
     
     DDSScheduler(std::condition_variable& mesosStarted,
                 const mesos::ExecutorInfo& executorInfo, 
-                const mesos::Resources& resourcesPerTask);
-        
+                const mesos::Resources& resourcesPerTask,
+                const mesos::ContainerInfo& containerInfo);
+
     /*
      * Empty virtual destructor (necessary to instantiate subclasses).
      */
@@ -152,6 +153,7 @@ private:
 
     const mesos::ExecutorInfo& executorInfo;
     const mesos::Resources& resourcesPerTask;
+    const mesos::ContainerInfo& containerInfo;
 
     // Queues and Lists
     std::deque<mesos::TaskInfo> waitingTasks;

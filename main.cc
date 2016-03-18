@@ -3,7 +3,8 @@
 #include <atomic>
 #include <cstdlib>
 #include <iostream>
-#include <ostream>
+#include <unistd.h>
+#include <thread>
 
 //#include "boost/foreach.hpp"
 
@@ -43,7 +44,7 @@ namespace {
         sigaction(SIGINT, &sa, nullptr);
     }
 
-    const char *const defaultMaster = "192.168.134.133:5050";
+    const char *const defaultMaster = "192.168.134.134:5050";
     const char *const defaultExecutorUri = "http://kevinnapoli.com/mesos/mesosmyexecutor";
     const int defaultNumTasks = 1;
     const int defaultCpusPerTask = 1;
@@ -97,6 +98,12 @@ int main(int argc, char **argv) {
 
     writeToFile(logFilePath, string(" "));
 
+    ostringstream ostr;
+    ostr << "Welcome to dds-submit-mesos" << endl
+         << "Main PID is: " << ::getpid() << endl
+         << "Main Thread ID is: " << std::this_thread::get_id() << endl;
+    logToFile(ostr.str());
+
     string master = defaultMaster;
     string executorUri = defaultExecutorUri;
     int numTasks = defaultNumTasks;
@@ -105,7 +112,7 @@ int main(int argc, char **argv) {
 
     // Describe My Framework
     FrameworkInfo frameworkInfo;
-    frameworkInfo.set_user("");
+    frameworkInfo.set_user("root");
     frameworkInfo.set_name("Mesos DDS Framework");
     frameworkInfo.set_principal("ddsframework");
 
@@ -126,6 +133,19 @@ int main(int argc, char **argv) {
             ";mem:" + to_string(memSizePerTask)
     ).get();
 
+    // Docker Info
+    ContainerInfo container;
+    container.set_type(ContainerInfo::DOCKER);
+    Volume * volume = container.add_volumes();
+    volume->set_host_path("/home/kevin/.DDS");
+    volume->set_container_path("/home/kevin/.DDS");
+    volume->set_mode(Volume_Mode::Volume_Mode_RW);
+    {
+        ContainerInfo::DockerInfo dockerInfo;
+        dockerInfo.set_image("ubuntu:14.04");
+        container.mutable_docker()->CopyFrom(dockerInfo);
+    }
+
     // Instantiate our custom scheduler containing the information
     // about the executor who is supposed to execute the task
 
@@ -133,7 +153,7 @@ int main(int argc, char **argv) {
     unique_lock <std::mutex> uniqueLock(mt);
     condition_variable mesosStarted;
 
-    DDSScheduler ddsScheduler(mesosStarted, execInfo, resourcesPerTask);
+    DDSScheduler ddsScheduler(mesosStarted, execInfo, resourcesPerTask, container);
 
     MesosSchedulerDriver msd(&ddsScheduler, frameworkInfo, master);
     ::msd = &msd;
@@ -165,11 +185,13 @@ int main(int argc, char **argv) {
 
             ostringstream ostr;
 
-            ostr << "DDS-Intercom onSubmit..: " << endl;
-            ostr << "\tm_nInstances: " << submit.m_nInstances << endl;
-            ostr << "\tm_cfgFilePath: " << submit.m_cfgFilePath << endl;
-            ostr << "\tm_id: " << submit.m_id << endl;
-            ostr << "\tm_wrkPackagePath: " << submit.m_wrkPackagePath << endl;
+            ostr << "DDS-Intercom onSubmit..: " << endl
+                 << "\tonSubmit PID is: " << getpid() << endl
+                 << "\tonSubmit Thread ID is: " << std::this_thread::get_id() << endl
+                 << "\tm_nInstances: " << submit.m_nInstances << endl
+                 << "\tm_cfgFilePath: " << submit.m_cfgFilePath << endl
+                 << "\tm_id: " << submit.m_id << endl
+                 << "\tm_wrkPackagePath: " << submit.m_wrkPackagePath << endl;
             logToFile(ostr.str());
 
             // Inform Mesos to deploy n agents
@@ -182,6 +204,7 @@ int main(int argc, char **argv) {
 
             ddsScheduler.addAgents(ddsSubmitInfo);
 
+            // Call to stop waiting
             protocol.stop();
         });
 
@@ -195,7 +218,6 @@ int main(int argc, char **argv) {
             // Implement functionality related to requirements here.
             logToFile("DDS-Intercom onRequirement: ");
         });
-
 
         // Stop here and wait for notifications from commander.
         protocol.wait();
