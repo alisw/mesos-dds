@@ -12,6 +12,28 @@ enable_testing()
 #set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/v2.5.0-1")
 #
 
+add_definitions(-DBOOST_LOG_DYN_LINK)
+
+find_package (Threads)
+
+if(BOOST_ROOT)
+    find_library(BOOST_SYSTEM_LIBRARY boost_system
+                 PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
+    find_library(BOOST_FILESYSTEM_LIBRARY boost_filesystem
+            PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
+    find_library(BOOST_THREAD_LIBRARY boost_thread
+            PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
+    find_library(BOOST_LOG_SETUP_LIBRARY boost_log_setup
+            PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
+    find_library(BOOST_LOG_LIBRARY boost_log
+            PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
+else()
+    find_library(BOOST_SYSTEM_LIBRARY boost_system)
+    find_library(BOOST_FILESYSTEM_LIBRARY boost_filesystem)
+    find_library(BOOST_THREAD_LIBRARY boost_thread)
+    find_library(BOOST_LOG_SETUP_LIBRARY boost_log_setup)
+    find_library(BOOST_LOG_LIBRARY boost_log)
+endif()
 find_library(MESOS_LIBRARY mesos 
              PATHS ${MESOS_ROOT}/lib NO_DEFAULT_PATH)
 find_library(PROTOBUF_LIBRARY protobuf 
@@ -46,6 +68,12 @@ target_link_libraries(mesos-dds
                       ${MESOS_LIBRARY}
                       ${PROTOBUF_LIBRARY}
                       ${DDS_LIBRARY}
+                      ${BOOST_FILESYSTEM_LIBRARY}
+                      ${BOOST_LOG_SETUP_LIBRARY}
+                      ${BOOST_LOG_LIBRARY}
+                      ${BOOST_THREAD_LIBRARY}
+                      ${BOOST_SYSTEM_LIBRARY}
+                      ${CMAKE_THREAD_LIBS_INIT}
                       curl)
 add_executable(dds-submit-mesos 
                main.cc)

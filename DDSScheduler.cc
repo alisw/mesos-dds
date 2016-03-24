@@ -2,27 +2,30 @@
 #include <algorithm>
 #include <thread>
 #include <sstream>
+
+// Logging
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+
+// File System
+#include <boost/filesystem.hpp>
+
 #include "DDSScheduler.h"
 
 using namespace std;
 using namespace mesos;
 
-void logToFile(std::string);
-
 DDSScheduler::DDSScheduler(condition_variable &mesosStarted,
-                           const ExecutorInfo &executorInfo,
-                           const Resources &resourcesPerTask,
-                           const ContainerInfo& containerInfo)
+                           const Resources &resourcesPerTask)
         : mesosStarted(mesosStarted),
-          executorInfo(executorInfo),
-          resourcesPerTask(resourcesPerTask),
-          containerInfo ( containerInfo )
+          resourcesPerTask(resourcesPerTask)
 {
-    logToFile("DDS Framework Constructor");
+    BOOST_LOG_TRIVIAL(trace) << "DDS Framework Constructor" << endl;
 }
 
 DDSScheduler::~DDSScheduler() {
-    logToFile("DDS Framework Destructor");
+    BOOST_LOG_TRIVIAL(trace) <<  "DDS Framework Destructor" << endl;
 }
 
 void DDSScheduler::registered(
@@ -30,13 +33,12 @@ void DDSScheduler::registered(
         const FrameworkID &frameworkId,
         const MasterInfo &masterInfo
 ) {
-    ostringstream ostr;
-    ostr << "DDS Framework: Registered with Master ID: "
+    BOOST_LOG_TRIVIAL(trace)
+         << "DDS Framework: Registered with Master ID: "
          << masterInfo.id()
          << " and Framework "
          << frameworkId.SerializeAsString()
          << endl;
-    logToFile(ostr.str());
     mesosStarted.notify_one();
 }
 
@@ -44,11 +46,11 @@ void DDSScheduler::reregistered(
         SchedulerDriver *driver,
         const MasterInfo &masterInfo
 ) {
-    logToFile("DDS Framework reregistered");
+    BOOST_LOG_TRIVIAL(trace) << "DDS Framework reregistered" << endl;
 }
 
 void DDSScheduler::disconnected(SchedulerDriver *driver) {
-    logToFile("DDS Framework Disconnected");
+    BOOST_LOG_TRIVIAL(trace) << "DDS Framework Disconnected" << endl;
 }
 
 void DDSScheduler::resourceOffers(
@@ -56,16 +58,14 @@ void DDSScheduler::resourceOffers(
         const vector <Offer> &offers
 ) {
     lock_guard<std::mutex> lock(ddsMutex);
-    logToFile("DDS Framework Resource Offers");
-
-
+    BOOST_LOG_TRIVIAL(trace) << "DDS Framework Resource Offers" << endl;
 
     for (const Offer& offer : offers) {
 
         // If no tasks to schedule, decline all offers
         if (waitingTasks.size() == 0) {
             driver->declineOffer(offer.id());
-            logToFile("DDS Framework Resource Offers - Declined offers, nothing to schedule");
+            BOOST_LOG_TRIVIAL(info) << "DDS Framework Resource Offers - Declined offers, nothing to schedule" << endl;
             continue;
         }
 
@@ -83,9 +83,9 @@ void DDSScheduler::resourceOffers(
         // Process taskInfoList
         if (taskInfoList.size() == 0) {
             driver->declineOffer(offer.id());
-            logToFile("DDS Framework: Declined offer, no suitable resources for the task/s");
+            BOOST_LOG_TRIVIAL(info) << "DDS Framework: Declined offer, no suitable resources for the task/s" << endl;
         } else {
-            logToFile("DDS Framework: Accepting some or all of resources from offer");
+            BOOST_LOG_TRIVIAL(info) << "DDS Framework: Accepting some or all of resources from offer" << endl;
             driver->launchTasks(offer.id(), taskInfoList);
         }
     }
@@ -95,7 +95,7 @@ void DDSScheduler::offerRescinded(
         SchedulerDriver *driver,
         const OfferID &offerId
 ) {
-    logToFile("DDS Framework Offer Rescinded");
+    BOOST_LOG_TRIVIAL(trace) << "DDS Framework Offer Rescinded" << endl;
 }
 
 void DDSScheduler::statusUpdate(
@@ -103,7 +103,7 @@ void DDSScheduler::statusUpdate(
         const TaskStatus &status
 ) {
     lock_guard<std::mutex> lock(ddsMutex);
-    logToFile("DDS Framework Status Update");
+    BOOST_LOG_TRIVIAL(trace) << "DDS Framework Status Update" << endl;
 
     switch (status.state()) {
         case TASK_STAGING:
@@ -120,7 +120,7 @@ void DDSScheduler::statusUpdate(
                                                       }
             );
             if (item == runningTasks.end()) {
-                logToFile("STATUPDATE ERROR: TASK NOT FOUND!!!!!");
+                BOOST_LOG_TRIVIAL(error) << "STATUS UPDATE ERROR: TASK NOT FOUND!!!!!" << endl;
             } else {
                 // move this item
                 finishedTasks.push_back(status);
@@ -139,20 +139,20 @@ void DDSScheduler::statusUpdate(
                                                           return taskInfo.task_id() == status.task_id();
                                                       }
             );
-            logToFile("Reason: " + status.message());
+            BOOST_LOG_TRIVIAL(error) << "Reason: " + status.message() << endl;
             if (item == runningTasks.end()) {
-                logToFile("DDS Framework: STATUPDATE ERROR: TASK NOT FOUND!!!!! Cannot ReQueue");
+                BOOST_LOG_TRIVIAL(error) << "DDS Framework: STATUS UPDATE ERROR: TASK NOT FOUND!!!!! Cannot ReQueue" << endl;
             } else {
                 // move this item
                 waitingTasks.push_back(move(*item));
                 runningTasks.erase(item);
-                logToFile("DDS Framework: Task ERROR (ReQueued) ID: ");
-                logToFile(status.task_id().value());
+                BOOST_LOG_TRIVIAL(error) << "DDS Framework: Task ERROR (ReQueued) ID: "
+                                         << status.task_id().value() << endl;
             }
         }
             break;
         default:
-            logToFile("DDS Framewrk - Unknown Task Status Value");
+            BOOST_LOG_TRIVIAL(warning) << "DDS Framework - Unknown Task Status Value" << endl;
             break;
     }
 
@@ -165,7 +165,7 @@ void DDSScheduler::frameworkMessage(
         const SlaveID &slaveId,
         const string &data
 ) {
-    logToFile("DDS Framework Framework Message");
+    BOOST_LOG_TRIVIAL(trace) << "DDS Framework Framework Message" << endl;
 }
 
 void DDSScheduler::slaveLost(
@@ -182,39 +182,72 @@ void DDSScheduler::executorLost(SchedulerDriver *driver,
                                 const SlaveID &slaveId,
                                 int status
 ) {
-    logToFile("DDS Framework Executor Lost");
+    BOOST_LOG_TRIVIAL(trace) << "DDS Framework Executor Lost" << endl;
 }
 
 void DDSScheduler::error(SchedulerDriver *driver, const string &message) {
-    logToFile("DDS Framework Error");
-    logToFile(message);
+    BOOST_LOG_TRIVIAL(error) << "DDS Framework Error: " << message << endl;
+}
+
+void DDSScheduler::setFutureTaskContainerImage(const string &imageName) {
+    containerImageName = imageName;
+}
+
+void DDSScheduler::setFutureWorkDirName(const string &workDirName) {
+    workDirectoryName = workDirName;
 }
 
 // Synchronised
 void DDSScheduler::addAgents(const DDSSubmitInfo& submit) {
     lock_guard<std::mutex> lock(ddsMutex);
-    logToFile("Adding Agents from DDS-Submit");
+    BOOST_LOG_TRIVIAL(trace) << "Adding Agents from DDS-Submit" << endl;
+
+    // Paths
+    boost::filesystem::path workPackagePath (submit.m_wrkPackagePath);
+    const string strWorkPackageParentDirectory = workPackagePath.parent_path().string();
+    const string strWorkPackageFileName = workPackagePath.filename().string();
+
+    // Docker Info
+    ContainerInfo container;
+    {
+        container.set_type(ContainerInfo::DOCKER);
+
+        Volume * volume = container.add_volumes();
+        volume->set_host_path(strWorkPackageParentDirectory);
+        volume->set_container_path(strWorkPackageParentDirectory);
+        volume->set_mode(Volume_Mode::Volume_Mode_RO);
+
+        ContainerInfo::DockerInfo dockerInfo;
+        dockerInfo.set_image(containerImageName);
+        container.mutable_docker()->CopyFrom(dockerInfo);
+    }
+
+    // Either execute command or executor
+    CommandInfo commandInfo;
+    {
+        ostringstream ostr;
+
+        // Copy worker package in a temporary directory
+        ostr
+            << "cd /"
+            << " && mkdir " << workDirectoryName
+            << " && cd " << workDirectoryName
+            << " && cp " << submit.m_wrkPackagePath << " ."
+            << " && ./" << strWorkPackageFileName;
+
+        // Set command
+        commandInfo.set_value(ostr.str());
+    }
 
     for (size_t i = 1; i <= submit.m_nInstances; ++i) {
         TaskInfo taskInfo;
+
         taskInfo.set_name(string("DDS Framework Task #") + to_string(i));
         taskInfo.mutable_task_id()->set_value(to_string(i));
-        //taskInfo.mutable_slave_id()->MergeFrom(offer.slave_id());
         taskInfo.mutable_resources()->MergeFrom(resourcesPerTask);
-        taskInfo.mutable_container()->MergeFrom(containerInfo);
-
-        // Either execute command or executor
-        CommandInfo commandInfo;
-        ostringstream ostr;
-        // Create temporary directory and enter it
-        ostr << "cd / && mkdir DDSEnvironment && cd DDSEnvironment && " ;
-        // Copy Worker Package to this directory and execute script
-        ostr << "cp " << submit.m_wrkPackagePath << " . && ./$(basename " << submit.m_wrkPackagePath << ")";
-        // Set command
-        commandInfo.set_value(ostr.str());
-
+        taskInfo.mutable_container()->MergeFrom(container);
         taskInfo.mutable_command()->MergeFrom(commandInfo);
-        //taskQueue.push();
+
         waitingTasks.push_back(taskInfo);
     }
 

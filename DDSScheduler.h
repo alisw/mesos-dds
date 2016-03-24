@@ -19,14 +19,12 @@ struct DDSSubmitInfo {
 };
 
 class DDSScheduler
-  : public mesos::Scheduler 
+  : public mesos::Scheduler
 {
 public:
     
     DDSScheduler(std::condition_variable& mesosStarted,
-                const mesos::ExecutorInfo& executorInfo, 
-                const mesos::Resources& resourcesPerTask,
-                const mesos::ContainerInfo& containerInfo);
+                const mesos::Resources& resourcesPerTask);
 
     /*
      * Empty virtual destructor (necessary to instantiate subclasses).
@@ -142,6 +140,8 @@ public:
 
     // Setters
     void addAgents(const DDSSubmitInfo& submit);
+    void setFutureTaskContainerImage(const std::string& imageName);
+    void setFutureWorkDirName(const std::string& workDirName);
 
 private:
 
@@ -150,10 +150,11 @@ private:
 
     // Mutex to protect method calls
     std::mutex ddsMutex;
-
-    const mesos::ExecutorInfo& executorInfo;
     const mesos::Resources& resourcesPerTask;
-    const mesos::ContainerInfo& containerInfo;
+
+    //
+    std::string containerImageName;
+    std::string workDirectoryName;
 
     // Queues and Lists
     std::deque<mesos::TaskInfo> waitingTasks;
