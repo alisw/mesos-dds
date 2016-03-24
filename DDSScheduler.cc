@@ -205,7 +205,13 @@ void DDSScheduler::addAgents(const DDSSubmitInfo& submit) {
 
         // Either execute command or executor
         CommandInfo commandInfo;
-        commandInfo.set_value(submit.m_wrkPackagePath);
+        ostringstream ostr;
+        // Create temporary directory and enter it
+        ostr << "cd / && mkdir DDSEnvironment && cd DDSEnvironment && " ;
+        // Copy Worker Package to this directory and execute script
+        ostr << "cp " << submit.m_wrkPackagePath << " . && ./$(basename " << submit.m_wrkPackagePath << ")";
+        // Set command
+        commandInfo.set_value(ostr.str());
 
         taskInfo.mutable_command()->MergeFrom(commandInfo);
         //taskQueue.push();

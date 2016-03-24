@@ -44,7 +44,7 @@ namespace {
         sigaction(SIGINT, &sa, nullptr);
     }
 
-    const char *const defaultMaster = "192.168.134.134:5050";
+    const char *const defaultMaster = "10.60.10.174:5050";
     const char *const defaultExecutorUri = "http://kevinnapoli.com/mesos/mesosmyexecutor";
     const int defaultNumTasks = 1;
     const int defaultCpusPerTask = 1;

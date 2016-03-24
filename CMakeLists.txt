@@ -4,6 +4,14 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 
 enable_testing()
 
+#
+#set(BOOST_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/boost/v1.59.0-1")
+#set(DDS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/DDS/master-1")
+#set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/v0.3.4-1")
+#set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/v0.25.0-1")
+#set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/v2.5.0-1")
+#
+
 find_library(MESOS_LIBRARY mesos 
              PATHS ${MESOS_ROOT}/lib NO_DEFAULT_PATH)
 find_library(PROTOBUF_LIBRARY protobuf 
@@ -13,8 +21,10 @@ find_library(DDS_LIBRARY dds_intercom_lib
 
 find_path(MESOS_INCDIR mesos/mesos.hpp 
           PATHS ${MESOS_ROOT}/include NO_DEFAULT_PATH)
+if(BOOST_ROOT)
 find_path(BOOST_INCDIR boost/foreach.hpp
           PATHS ${BOOST_ROOT}/include NO_DEFAULT_PATH)
+endif()
 find_path(PROTOBUF_INCDIR google/protobuf/stubs/common.h
           PATHS ${PROTOBUF_ROOT}/include NO_DEFAULT_PATH)
 find_path(GLOG_INCDIR glog/logging.h
