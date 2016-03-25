@@ -49,7 +49,7 @@ namespace {
         sigaction(SIGINT, &sa, nullptr);
     }
 
-    const char* const defaultMaster = "10.60.10.174:5050";
+    const char* const defaultMaster = "192.168.134.137:5050";
     const char* const defaultLogFilePath = "/home/kevin/mesos-dds.txt";
     const char* const defaultDockerAgentImage = "ubuntu:14.04";
     const char* const defaultTempDirInContainer = "DDSEnvironment";
@@ -59,9 +59,17 @@ namespace {
 
 int main(int argc, char **argv) {
 
+    // Set or use defaults
+    string master = defaultMaster;
+    string logFilePath = defaultLogFilePath;
+    string dockerAgentImage = defaultDockerAgentImage;
+    string tempDirInContainer = defaultTempDirInContainer;
+    int numCpuPerTask = defaultCpusPerTask;
+    int memSizePerTask = defaultMemSizePerTask;
+
     // Setup Logging
-    if (*defaultLogFilePath) {
-        logging::add_file_log(keywords::file_name = defaultLogFilePath,
+    if (logFilePath.length() > 0) {
+        logging::add_file_log(keywords::file_name = logFilePath,
                               keywords::auto_flush = true,
                               keywords::format = "[%TimeStamp%]: %Message%");
     }
@@ -70,11 +78,12 @@ int main(int argc, char **argv) {
     BOOST_LOG_TRIVIAL(trace)
         << "Welcome to dds-submit-mesos" << endl
         << "Main PID is: " << ::getpid() << endl
-        << "Main Thread ID is: " << std::this_thread::get_id() << endl;
+        << "Main Thread ID is: " << std::this_thread::get_id() << endl
+        << "Argument Count: " << argc << endl;
 
-    string master = defaultMaster;
-    int numCpuPerTask = defaultCpusPerTask;
-    int memSizePerTask = defaultMemSizePerTask;
+    for (int i = 0; i < argc; ++i) {
+        BOOST_LOG_TRIVIAL(trace) << i << ") " << argv[i] << endl;
+    }
 
     // Describe My Framework
     FrameworkInfo frameworkInfo;
@@ -94,8 +103,8 @@ int main(int argc, char **argv) {
     condition_variable mesosStarted;
 
     DDSScheduler ddsScheduler(mesosStarted, resourcesPerTask);
-    ddsScheduler.setFutureTaskContainerImage(defaultDockerAgentImage);
-    ddsScheduler.setFutureWorkDirName(defaultTempDirInContainer);
+    ddsScheduler.setFutureTaskContainerImage(dockerAgentImage);
+    ddsScheduler.setFutureWorkDirName(tempDirInContainer);
 
     MesosSchedulerDriver msd(&ddsScheduler, frameworkInfo, master);
     ::msd = &msd;
