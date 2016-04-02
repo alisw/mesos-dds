@@ -23,7 +23,7 @@ class DDSScheduler
 {
 public:
     
-    DDSScheduler(std::condition_variable& mesosStarted);
+    DDSScheduler();
 
     /*
      * Empty virtual destructor (necessary to instantiate subclasses).
@@ -143,9 +143,6 @@ public:
     void setFutureWorkDirName(const std::string& workDirName);
 
 private:
-
-    // Condition variable to synchronise with DDS
-    std::condition_variable& mesosStarted;
 
     // Mutex to protect method calls
     std::mutex ddsMutex;

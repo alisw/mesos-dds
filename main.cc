@@ -45,7 +45,10 @@ namespace keywords = boost::log::keywords;
 namespace {
     //volatile sig_atomic_t interrupted = false;
     atomic<bool> interrupted(false);
+    FrameworkInfo frameworkInfo;
+    unique_ptr<DDSScheduler> ddsScheduler;
     unique_ptr<MesosSchedulerDriver> msd;
+
 
     void SigIntHandler(int signum) {
         if (interrupted) {
@@ -110,32 +113,6 @@ int main(int argc, char **argv) {
         BOOST_LOG_TRIVIAL(trace) << i << ") " << argv[i] << endl;
     }
 
-    // Set or use defaults
-    string master = defaultMaster;
-
-    // Define condition variable
-    mutex mt;
-    unique_lock <std::mutex> uniqueLock(mt);
-    condition_variable mesosStarted;
-
-    // Describe My Framework
-    FrameworkInfo frameworkInfo;
-    frameworkInfo.set_user("root");
-    frameworkInfo.set_name("Mesos DDS Framework");
-    frameworkInfo.set_principal("ddsframework");
-
-    //MesosSchedulerDriver msd(&ddsScheduler, frameworkInfo, master);
-    unique_ptr<DDSScheduler> ddsScheduler (new DDSScheduler(mesosStarted));
-    msd.reset(new MesosSchedulerDriver(ddsScheduler.get(), frameworkInfo, master));
-    registerSigInt(SigIntHandler);
-
-    BOOST_LOG_TRIVIAL(trace) << "Starting Mesos on a seperate thread" << endl;
-    Status status = msd->start();
-
-    // Wait for mesos thread to signal to us that it started
-    BOOST_LOG_TRIVIAL(trace) << "Waiting for Mesos Signal.." << endl;
-    mesosStarted.wait(uniqueLock);
-
     BOOST_LOG_TRIVIAL(trace) << "Mesos DDS Plugin - Running" << endl;
 
     CRMSPluginProtocol protocol("mesos");
@@ -144,7 +121,7 @@ int main(int argc, char **argv) {
         // This must be the first call to let DDS commander know that we are online.
         protocol.sendInit();
 
-        protocol.onSubmit([&protocol, &ddsScheduler](const SSubmit &submit) {
+        protocol.onSubmit([&protocol](const SSubmit &submit) {
             // Implement submit related functionality here.
             // After submit has completed call stop() function.
 
@@ -174,6 +151,7 @@ int main(int argc, char **argv) {
                 for (size_t i = 0; i < numLines && getline(ifs, conf[i]); ++i) {}
             }
 
+            string master = conf[0].length() ? conf[0] : defaultMaster;
             uint32_t numAgents = static_cast<uint32_t >(stoi(conf[1].length() ? conf[1] : string("1")));
             string dockerAgentImage = conf[2].length() ? conf[2] : defaultDockerAgentImage;
             string tempDirInContainer = conf[3].length() ? conf[3] : defaultTempDirInContainer;
@@ -182,11 +160,28 @@ int main(int argc, char **argv) {
 
             BOOST_LOG_TRIVIAL(trace)
                 << "Using these values:" << endl
+                << "\tmaster: " << master << endl
                 << "\tnumAgents: " << numAgents << endl
                 << "\tdockerAgentImage: " << dockerAgentImage << endl
                 << "\tempDirInContainer: " << tempDirInContainer << endl
                 << "\tcpusPerTask: " << cpusPerTask << endl
                 << "\tmemSizePerTask: " << memSizePerTask << endl;
+
+            // Initialise mesos
+            if (!msd || !ddsScheduler) {
+                msd.reset();
+
+                // Describe My Framework
+                frameworkInfo.set_user("root");
+                frameworkInfo.set_name("Mesos DDS Framework");
+                frameworkInfo.set_principal("ddsframework");
+
+                ddsScheduler.reset(new DDSScheduler());
+                msd.reset(new MesosSchedulerDriver(ddsScheduler.get(), frameworkInfo, master));
+                registerSigInt(SigIntHandler);
+                BOOST_LOG_TRIVIAL(trace) << "Starting Mesos on a seperate thread" << endl;
+                Status status = msd->start();
+            }
 
             // Describe Resources per Task
             Resources resourcesPerAgent = Resources::parse(
@@ -223,6 +218,7 @@ int main(int argc, char **argv) {
         protocol.sendMessage(dds::intercom_api::EMsgSeverity::error, e.what());
     }
 
+    BOOST_LOG_TRIVIAL(trace) << "Waiting for MesosSchedulerDriver join" << endl;
     //msd->stop();
     msd->join();
 

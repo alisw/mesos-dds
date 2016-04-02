@@ -16,8 +16,7 @@
 using namespace std;
 using namespace mesos;
 
-DDSScheduler::DDSScheduler(condition_variable &mesosStarted)
-        : mesosStarted(mesosStarted)
+DDSScheduler::DDSScheduler()
 {
     BOOST_LOG_TRIVIAL(trace) << "DDS Framework Constructor" << endl;
 }
@@ -37,7 +36,6 @@ void DDSScheduler::registered(
          << " and Framework "
          << frameworkId.SerializeAsString()
          << endl;
-    mesosStarted.notify_one();
 }
 
 void DDSScheduler::reregistered(
