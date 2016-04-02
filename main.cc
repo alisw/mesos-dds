@@ -5,6 +5,19 @@
 #include <iostream>
 #include <unistd.h>
 #include <thread>
+#include <fstream>
+
+#include <string>
+#include <sstream>
+#include <vector>
+
+// Required for getHome
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <stdexcept>
+
+#include <memory>
 
 /**/
 
@@ -18,6 +31,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup/file.hpp>
+#include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace mesos;
@@ -31,7 +45,7 @@ namespace keywords = boost::log::keywords;
 namespace {
     //volatile sig_atomic_t interrupted = false;
     atomic<bool> interrupted(false);
-    MesosSchedulerDriver *msd;
+    unique_ptr<MesosSchedulerDriver> msd;
 
     void SigIntHandler(int signum) {
         if (interrupted) {
@@ -49,8 +63,19 @@ namespace {
         sigaction(SIGINT, &sa, nullptr);
     }
 
-    const char* const defaultMaster = "192.168.134.137:5050";
-    const char* const defaultLogFilePath = "/home/kevin/mesos-dds.txt";
+    string getHome() {
+        const char* ptHome = getenv("HOME");
+        if (ptHome == nullptr || *ptHome == '\0') {
+            // Home environment variable is unset
+            const struct passwd *pw = getpwuid(getuid());
+            if (pw == nullptr || (ptHome = pw->pw_dir) == nullptr) {
+                throw runtime_error("Cannot retrieve Home directory");
+            }
+        }
+        return ptHome;
+    }
+
+    const char* const defaultMaster = "127.0.1.1:5050";
     const char* const defaultDockerAgentImage = "ubuntu:14.04";
     const char* const defaultTempDirInContainer = "DDSEnvironment";
     const int defaultCpusPerTask = 1;
@@ -59,16 +84,16 @@ namespace {
 
 int main(int argc, char **argv) {
 
-    // Set or use defaults
-    string master = defaultMaster;
-    string logFilePath = defaultLogFilePath;
-    string dockerAgentImage = defaultDockerAgentImage;
-    string tempDirInContainer = defaultTempDirInContainer;
-    int numCpuPerTask = defaultCpusPerTask;
-    int memSizePerTask = defaultMemSizePerTask;
-
     // Setup Logging
-    if (logFilePath.length() > 0) {
+    {
+        string logFilePath;
+        try {
+            boost::filesystem::path homePath (getHome());
+            boost::filesystem::path logFile ("mesos-dds-log.txt");
+            logFilePath = (homePath / logFile).string();
+        } catch (const exception *ex) {
+            logFilePath = "/tmp/mesos-dds-log.txt";
+        }
         logging::add_file_log(keywords::file_name = logFilePath,
                               keywords::auto_flush = true,
                               keywords::format = "[%TimeStamp%]: %Message%");
@@ -85,33 +110,27 @@ int main(int argc, char **argv) {
         BOOST_LOG_TRIVIAL(trace) << i << ") " << argv[i] << endl;
     }
 
-    // Describe My Framework
-    FrameworkInfo frameworkInfo;
-    frameworkInfo.set_user("root");
-    frameworkInfo.set_name("Mesos DDS Framework");
-    frameworkInfo.set_principal("ddsframework");
-
-    // Describe Resources per Task
-    Resources resourcesPerTask = Resources::parse(
-            "cpus:" + to_string(numCpuPerTask) +
-            ";mem:" + to_string(memSizePerTask)
-    ).get();
+    // Set or use defaults
+    string master = defaultMaster;
 
     // Define condition variable
     mutex mt;
     unique_lock <std::mutex> uniqueLock(mt);
     condition_variable mesosStarted;
 
-    DDSScheduler ddsScheduler(mesosStarted, resourcesPerTask);
-    ddsScheduler.setFutureTaskContainerImage(dockerAgentImage);
-    ddsScheduler.setFutureWorkDirName(tempDirInContainer);
+    // Describe My Framework
+    FrameworkInfo frameworkInfo;
+    frameworkInfo.set_user("root");
+    frameworkInfo.set_name("Mesos DDS Framework");
+    frameworkInfo.set_principal("ddsframework");
 
-    MesosSchedulerDriver msd(&ddsScheduler, frameworkInfo, master);
-    ::msd = &msd;
+    //MesosSchedulerDriver msd(&ddsScheduler, frameworkInfo, master);
+    unique_ptr<DDSScheduler> ddsScheduler (new DDSScheduler(mesosStarted));
+    msd.reset(new MesosSchedulerDriver(ddsScheduler.get(), frameworkInfo, master));
     registerSigInt(SigIntHandler);
 
     BOOST_LOG_TRIVIAL(trace) << "Starting Mesos on a seperate thread" << endl;
-    Status status = msd.start();
+    Status status = msd->start();
 
     // Wait for mesos thread to signal to us that it started
     BOOST_LOG_TRIVIAL(trace) << "Waiting for Mesos Signal.." << endl;
@@ -145,7 +164,40 @@ int main(int argc, char **argv) {
             ddsSubmitInfo.m_nInstances = submit.m_nInstances;
             ddsSubmitInfo.m_wrkPackagePath = submit.m_wrkPackagePath;
 
-            ddsScheduler.addAgents(ddsSubmitInfo);
+            //ddsSubmitInfo.m_cfgFilePath = "/home/kevin/a.txt";
+
+            // Parse config file
+            const size_t numLines = 6;
+            string conf[numLines];
+            if (ddsSubmitInfo.m_cfgFilePath.length() > 0) {
+                ifstream ifs(ddsSubmitInfo.m_cfgFilePath);
+                for (size_t i = 0; i < numLines && getline(ifs, conf[i]); ++i) {}
+            }
+
+            uint32_t numAgents = static_cast<uint32_t >(stoi(conf[1].length() ? conf[1] : string("1")));
+            string dockerAgentImage = conf[2].length() ? conf[2] : defaultDockerAgentImage;
+            string tempDirInContainer = conf[3].length() ? conf[3] : defaultTempDirInContainer;
+            string cpusPerTask (conf[4].length() ? conf[4] : to_string(defaultCpusPerTask));
+            string memSizePerTask (conf[5].length() ? conf[5] : to_string(defaultMemSizePerTask));
+
+            BOOST_LOG_TRIVIAL(trace)
+                << "Using these values:" << endl
+                << "\tnumAgents: " << numAgents << endl
+                << "\tdockerAgentImage: " << dockerAgentImage << endl
+                << "\tempDirInContainer: " << tempDirInContainer << endl
+                << "\tcpusPerTask: " << cpusPerTask << endl
+                << "\tmemSizePerTask: " << memSizePerTask << endl;
+
+            // Describe Resources per Task
+            Resources resourcesPerAgent = Resources::parse(
+                    "cpus:" + cpusPerTask +
+                    ";mem:" + memSizePerTask
+            ).get();
+
+            ddsSubmitInfo.m_nInstances = numAgents;
+            ddsScheduler->setFutureTaskContainerImage(dockerAgentImage);
+            ddsScheduler->setFutureWorkDirName(tempDirInContainer);
+            ddsScheduler->addAgents(ddsSubmitInfo, resourcesPerAgent);
 
             // Call to stop waiting
             protocol.stop();
@@ -171,8 +223,8 @@ int main(int argc, char **argv) {
         protocol.sendMessage(dds::intercom_api::EMsgSeverity::error, e.what());
     }
 
-    //msd.stop();
-    msd.join();
+    //msd->stop();
+    msd->join();
 
     BOOST_LOG_TRIVIAL(trace) << "Exiting Mesos DDS" << endl;
 

@@ -16,10 +16,8 @@
 using namespace std;
 using namespace mesos;
 
-DDSScheduler::DDSScheduler(condition_variable &mesosStarted,
-                           const Resources &resourcesPerTask)
-        : mesosStarted(mesosStarted),
-          resourcesPerTask(resourcesPerTask)
+DDSScheduler::DDSScheduler(condition_variable &mesosStarted)
+        : mesosStarted(mesosStarted)
 {
     BOOST_LOG_TRIVIAL(trace) << "DDS Framework Constructor" << endl;
 }
@@ -72,11 +70,11 @@ void DDSScheduler::resourceOffers(
         // There's something in the waitingList..
         vector<TaskInfo> taskInfoList;
         Resources offeredResources = offer.resources();
-        while (offeredResources.contains(resourcesPerTask) && waitingTasks.size() > 0) {
+        while (waitingTasks.size() > 0 && offeredResources.contains(waitingTasks.front().resources())) {
             waitingTasks.front().mutable_slave_id()->MergeFrom(offer.slave_id());
             taskInfoList.push_back(waitingTasks.front());
             runningTasks.push_back(waitingTasks.front());
-            offeredResources -= resourcesPerTask;
+            offeredResources -= waitingTasks.front().resources();
             waitingTasks.pop_front();
         }
 
@@ -198,7 +196,7 @@ void DDSScheduler::setFutureWorkDirName(const string &workDirName) {
 }
 
 // Synchronised
-void DDSScheduler::addAgents(const DDSSubmitInfo& submit) {
+void DDSScheduler::addAgents(const DDSSubmitInfo& submit, const Resources& resourcesPerAgent) {
     lock_guard<std::mutex> lock(ddsMutex);
     BOOST_LOG_TRIVIAL(trace) << "Adding Agents from DDS-Submit" << endl;
 
@@ -244,7 +242,7 @@ void DDSScheduler::addAgents(const DDSSubmitInfo& submit) {
 
         taskInfo.set_name(string("DDS Framework Task #") + to_string(i));
         taskInfo.mutable_task_id()->set_value(to_string(i));
-        taskInfo.mutable_resources()->MergeFrom(resourcesPerTask);
+        taskInfo.mutable_resources()->MergeFrom(resourcesPerAgent);
         taskInfo.mutable_container()->MergeFrom(container);
         taskInfo.mutable_command()->MergeFrom(commandInfo);
 

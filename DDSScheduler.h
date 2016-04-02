@@ -23,8 +23,7 @@ class DDSScheduler
 {
 public:
     
-    DDSScheduler(std::condition_variable& mesosStarted,
-                const mesos::Resources& resourcesPerTask);
+    DDSScheduler(std::condition_variable& mesosStarted);
 
     /*
      * Empty virtual destructor (necessary to instantiate subclasses).
@@ -139,7 +138,7 @@ public:
 public:
 
     // Setters
-    void addAgents(const DDSSubmitInfo& submit);
+    void addAgents(const DDSSubmitInfo& submit, const mesos::Resources& resourcesPerAgent);
     void setFutureTaskContainerImage(const std::string& imageName);
     void setFutureWorkDirName(const std::string& workDirName);
 
@@ -150,7 +149,6 @@ private:
 
     // Mutex to protect method calls
     std::mutex ddsMutex;
-    const mesos::Resources& resourcesPerTask;
 
     //
     std::string containerImageName;

@@ -10,6 +10,7 @@ enable_testing()
 #set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/v0.3.4-1")
 #set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/v0.25.0-1")
 #set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/v2.5.0-1")
+#set(BOOST_INCDIR "")
 #
 
 add_definitions(-DBOOST_LOG_DYN_LINK)
