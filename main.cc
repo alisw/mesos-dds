@@ -118,9 +118,7 @@ int main(int argc, char **argv) {
     CRMSPluginProtocol protocol("mesos");
 
     try {
-        // This must be the first call to let DDS commander know that we are online.
-        protocol.sendInit();
-
+        
         protocol.onSubmit([&protocol](const SSubmit &submit) {
             // Implement submit related functionality here.
             // After submit has completed call stop() function.
@@ -209,8 +207,8 @@ int main(int argc, char **argv) {
             BOOST_LOG_TRIVIAL(trace) << "DDS-Intercom onRequirement:" << endl;
         });
 
-        // Stop here and wait for notifications from commander.
-        protocol.wait();
+        // Let DDS commander know that we are online and wait for notifications from commander
+        protocol.start();
 
     } catch (const exception &e) {
         BOOST_LOG_TRIVIAL(error) << "DDS-Intercom Exception: " << e.what() << endl;
