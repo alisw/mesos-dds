@@ -5,11 +5,11 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 enable_testing()
 
 #
-#set(BOOST_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/boost/v1.59.0-1")
-#set(DDS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/DDS/master-1")
-#set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/v0.3.4-1")
-#set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/v0.25.0-1")
-#set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/v2.5.0-1")
+#set(BOOST_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/boost/latest")
+#set(DDS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/DDS/latest")
+#set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/latest")
+#set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/latest")
+#set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/latest")
 #set(BOOST_INCDIR "")
 #
 

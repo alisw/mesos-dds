@@ -202,11 +202,6 @@ int main(int argc, char **argv) {
             BOOST_LOG_TRIVIAL(trace) << "DDS-Intercom onMessage:" << endl;
         });
 
-        protocol.onRequirement([](const SRequirement &_requirement) {
-            // Implement functionality related to requirements here.
-            BOOST_LOG_TRIVIAL(trace) << "DDS-Intercom onRequirement:" << endl;
-        });
-
         // Let DDS commander know that we are online and wait for notifications from commander
         protocol.start();
 
@@ -222,5 +217,5 @@ int main(int argc, char **argv) {
 
     BOOST_LOG_TRIVIAL(trace) << "Exiting Mesos DDS" << endl;
 
-    return 0;
+    return EXIT_SUCCESS;
 }
