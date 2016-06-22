@@ -246,5 +246,4 @@ void DDSScheduler::addAgents(const DDSSubmitInfo& submit, const Resources& resou
 
         waitingTasks.push_back(taskInfo);
     }
-
 }
