@@ -1,83 +1,36 @@
-#include <getopt.h>
-#include <signal.h>
-#include <atomic>
+// System includes
 #include <cstdlib>
-#include <iostream>
 #include <unistd.h>
 #include <thread>
 #include <fstream>
 
 #include <string>
 #include <sstream>
-#include <vector>
-
-// Required for getHome
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <stdexcept>
 
 #include <memory>
 
-/**/
-
-//#include <boost/property_tree/json_parser.hpp>
-//#include <boost/signals2/signal.hpp>
-// Must keep this order when including these header files
-#include "dds_intercom.h"
-#include "DDSScheduler.h"
-
+// Boost includes
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/filesystem.hpp>
 
-using namespace std;
-using namespace mesos;
-using namespace dds::intercom_api;
 
-namespace logging = boost::log;
-namespace keywords = boost::log::keywords;
+//#include <boost/property_tree/json_parser.hpp>
+//#include <boost/signals2/signal.hpp>
+// Must keep this order when including these header files
+#include "dds_intercom.h"
+#include "Utils.h"
+#include "Structures.h"
+
+using namespace std;
+using namespace dds::intercom_api;
+using namespace DDSMesos::Common;
 
 // Use unnamed namespaces in C++ instead
 // of static specifier as used in C
 namespace {
-    //volatile sig_atomic_t interrupted = false;
-    atomic<bool> interrupted(false);
-    FrameworkInfo frameworkInfo;
-    unique_ptr<DDSScheduler> ddsScheduler;
-    unique_ptr<MesosSchedulerDriver> msd;
-
-
-    void SigIntHandler(int signum) {
-        if (interrupted) {
-            return;
-        }
-        interrupted = true;
-        BOOST_LOG_TRIVIAL(trace) << "Mesos DDS - Received Interrupt Signal" << endl;
-        msd->stop();
-    }
-
-    void registerSigInt(void sigIntHandler(int)) {
-        struct sigaction sa{}; // zero-initialize
-        sa.sa_handler = sigIntHandler;
-        sigfillset(&sa.sa_mask);
-        sigaction(SIGINT, &sa, nullptr);
-    }
-
-    string getHome() {
-        const char* ptHome = getenv("HOME");
-        if (ptHome == nullptr || *ptHome == '\0') {
-            // Home environment variable is unset
-            const struct passwd *pw = getpwuid(getuid());
-            if (pw == nullptr || (ptHome = pw->pw_dir) == nullptr) {
-                throw runtime_error("Cannot retrieve Home directory");
-            }
-        }
-        return ptHome;
-    }
-
     const char* const defaultMaster = "127.0.1.1:5050";
     const char* const defaultDockerAgentImage = "ubuntu:14.04";
     const char* const defaultTempDirInContainer = "DDSEnvironment";
@@ -88,32 +41,15 @@ namespace {
 int main(int argc, char **argv) {
 
     // Setup Logging
-    {
-        string logFilePath;
-        try {
-            boost::filesystem::path homePath (getHome());
-            boost::filesystem::path logFile ("mesos-dds-log.txt");
-            logFilePath = (homePath / logFile).string();
-        } catch (const exception *ex) {
-            logFilePath = "/tmp/mesos-dds-log.txt";
-        }
-        logging::add_file_log(keywords::file_name = logFilePath,
-                              keywords::auto_flush = true,
-                              keywords::format = "[%TimeStamp%]: %Message%");
-    }
+    Utils::setupLogging("mesos-dds.log");
 
     // Proceed
     BOOST_LOG_TRIVIAL(trace)
         << "Welcome to dds-submit-mesos" << endl
-        << "Main PID is: " << ::getpid() << endl
-        << "Main Thread ID is: " << std::this_thread::get_id() << endl
         << "Argument Count: " << argc << endl;
-
     for (int i = 0; i < argc; ++i) {
         BOOST_LOG_TRIVIAL(trace) << i << ") " << argv[i] << endl;
     }
-
-    BOOST_LOG_TRIVIAL(trace) << "Mesos DDS Plugin - Running" << endl;
 
     CRMSPluginProtocol protocol("mesos");
 
@@ -125,8 +61,6 @@ int main(int argc, char **argv) {
 
             BOOST_LOG_TRIVIAL(trace)
                  << "DDS-Intercom onSubmit..: " << endl
-                 << "\tonSubmit PID is: " << getpid() << endl
-                 << "\tonSubmit Thread ID is: " << std::this_thread::get_id() << endl
                  << "\tm_nInstances: " << submit.m_nInstances << endl
                  << "\tm_cfgFilePath: " << submit.m_cfgFilePath << endl
                  << "\tm_id: " << submit.m_id << endl
@@ -165,32 +99,7 @@ int main(int argc, char **argv) {
                 << "\tcpusPerTask: " << cpusPerTask << endl
                 << "\tmemSizePerTask: " << memSizePerTask << endl;
 
-            // Initialise mesos
-            if (!msd || !ddsScheduler) {
-                msd.reset();
-
-                // Describe My Framework
-                frameworkInfo.set_user("root");
-                frameworkInfo.set_name("Mesos DDS Framework");
-                frameworkInfo.set_principal("ddsframework");
-
-                ddsScheduler.reset(new DDSScheduler());
-                msd.reset(new MesosSchedulerDriver(ddsScheduler.get(), frameworkInfo, master));
-                registerSigInt(SigIntHandler);
-                BOOST_LOG_TRIVIAL(trace) << "Starting Mesos on a seperate thread" << endl;
-                Status status = msd->start();
-            }
-
-            // Describe Resources per Task
-            Resources resourcesPerAgent = Resources::parse(
-                    "cpus:" + cpusPerTask +
-                    ";mem:" + memSizePerTask
-            ).get();
-
-            ddsSubmitInfo.m_nInstances = numAgents;
-            ddsScheduler->setFutureTaskContainerImage(dockerAgentImage);
-            ddsScheduler->setFutureWorkDirName(tempDirInContainer);
-            ddsScheduler->addAgents(ddsSubmitInfo, resourcesPerAgent);
+            // Send Information through using REST endpoint
 
             // Call to stop waiting
             protocol.stop();
@@ -211,11 +120,7 @@ int main(int argc, char **argv) {
         protocol.sendMessage(dds::intercom_api::EMsgSeverity::error, e.what());
     }
 
-    BOOST_LOG_TRIVIAL(trace) << "Waiting for MesosSchedulerDriver join" << endl;
-    //msd->stop();
-    msd->join();
-
-    BOOST_LOG_TRIVIAL(trace) << "Exiting Mesos DDS" << endl;
+    BOOST_LOG_TRIVIAL(trace) << "Ready - Exiting Mesos DDS" << endl;
 
     return EXIT_SUCCESS;
 }
