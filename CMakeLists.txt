@@ -16,6 +16,7 @@ enable_testing()
 #set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/latest")
 #set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/latest")
 #set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/latest")
+#set(RESTBED_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/restbed/latest")
 
 # A definition required by the BOOST Log module - will make Boost link dynamically
 add_definitions(-DBOOST_LOG_DYN_LINK)
@@ -70,6 +71,12 @@ find_library(DDS_LIBRARY dds_intercom_lib
 find_path(GLOG_INCDIR glog/logging.h
           PATHS ${GLOG_ROOT}/include NO_DEFAULT_PATH)
 
+# Restbed
+find_path(RESTBED_INCDIR restbed
+        PATHS ${RESTBED_ROOT}/include NO_DEFAULT_PATH)
+find_library(RESTBED_LIBRARY restbed
+        PATHS ${RESTBED_ROOT}/library NO_DEFAULT_PATH)
+
 # Include directories for all targets
 # None are needed at the moment
 
@@ -104,22 +111,30 @@ target_link_libraries(mesos-dds
 
 # dds-mesos-server executable target
 add_executable(dds-mesos-server DDSRestServer/main.cc)
+target_include_directories(dds-mesos-server PRIVATE
+    ${RESTBED_INCDIR}
+)
 target_link_libraries(dds-mesos-server
     mesos-dds # Target link libraries linked in mesos-dds are linked here as well (includes too)
     dds-mesos-common
+    ${RESTBED_LIBRARY}
 )
 
 # dds-submit-mesos executable target
 add_executable(dds-submit-mesos DDSPlugin/main.cc)
-target_include_directories(dds-submit-mesos PUBLIC
+target_include_directories(dds-submit-mesos PRIVATE
     DDSPlugin
     ${DDS_INCDIR}
+    ${RESTBED_INCDIR}
 )
 target_link_libraries(dds-submit-mesos
     ${DDS_LIBRARY}
     dds-mesos-common
+    ${RESTBED_LIBRARY}
 )
 
 # Installation options
 install(TARGETS dds-submit-mesos 
+        RUNTIME DESTINATION bin)
+install(TARGETS dds-mesos-server
         RUNTIME DESTINATION bin)
