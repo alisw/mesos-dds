@@ -16,6 +16,11 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/filesystem.hpp>
 
+// Restbed includes
+#include <restbed>
+
+// JsonBox Includes
+#include "JsonBox.h"
 
 //#include <boost/property_tree/json_parser.hpp>
 //#include <boost/signals2/signal.hpp>
@@ -31,7 +36,8 @@ using namespace DDSMesos::Common;
 // Use unnamed namespaces in C++ instead
 // of static specifier as used in C
 namespace {
-    const char* const defaultMaster = "127.0.1.1:5050";
+    const char* const defaultMaster = "localhost:5050";
+    const char* const defaultRestHost = "localhost:80";
     const char* const defaultDockerAgentImage = "ubuntu:14.04";
     const char* const defaultTempDirInContainer = "DDSEnvironment";
     const int defaultCpusPerTask = 1;
@@ -76,7 +82,7 @@ int main(int argc, char **argv) {
             //ddsSubmitInfo.m_cfgFilePath = "/home/kevin/a.txt";
 
             // Parse config file
-            const size_t numLines = 6;
+            const size_t numLines = 7;
             string conf[numLines];
             if (ddsSubmitInfo.m_cfgFilePath.length() > 0) {
                 ifstream ifs(ddsSubmitInfo.m_cfgFilePath);
@@ -89,6 +95,7 @@ int main(int argc, char **argv) {
             string tempDirInContainer = conf[3].length() ? conf[3] : defaultTempDirInContainer;
             string cpusPerTask (conf[4].length() ? conf[4] : to_string(defaultCpusPerTask));
             string memSizePerTask (conf[5].length() ? conf[5] : to_string(defaultMemSizePerTask));
+            string restHost = conf[6].length() ? conf[6] : defaultRestHost;
 
             BOOST_LOG_TRIVIAL(trace)
                 << "Using these values:" << endl
@@ -97,10 +104,33 @@ int main(int argc, char **argv) {
                 << "\tdockerAgentImage: " << dockerAgentImage << endl
                 << "\tempDirInContainer: " << tempDirInContainer << endl
                 << "\tcpusPerTask: " << cpusPerTask << endl
-                << "\tmemSizePerTask: " << memSizePerTask << endl;
+                << "\tmemSizePerTask: " << memSizePerTask << endl
+                << "\trestHost: " << restHost << endl;
 
             // Send Information through using REST endpoint
+            {
+                using namespace restbed;
+                shared_ptr<Request> request = make_shared<Request>( Uri( restHost + "/dds-submit" ) );
+                request->set_header( "Accept", "application/json" );
+                request->set_header( "Content-Type", "application/json" );
+                request->set_header( "Host", restHost );
+                request->set_method("POST");
 
+                // Json
+                request->set_body("{client: 123}");
+
+                shared_ptr<Response> response = Http::sync(request);
+
+                // Get Length
+                size_t content_length = 0;
+                response->get_header("Content-Length", content_length);
+
+                // Fetch Data
+                Http::fetch(content_length, response);
+
+                // Get Body Data
+                string strBody = string( reinterpret_cast<const char*>(response->get_body().data()), response->get_body().size() );
+            }
             // Call to stop waiting
             protocol.stop();
         });

@@ -13,6 +13,8 @@ namespace DDSMesos {
         namespace Utils {
             std::string getHome();
             void setupLogging(const std::string& logFileName);
+            std::string decode64(const std::string &val);
+            std::string encode64(const std::string &val);
         };
     }
 }

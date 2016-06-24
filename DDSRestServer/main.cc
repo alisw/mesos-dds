@@ -4,6 +4,7 @@
 
 // System Includes
 #include <getopt.h>
+#include <thread>
 
 // Boost Includes
 #include <boost/log/core.hpp>
@@ -11,19 +12,20 @@
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/filesystem.hpp>
+#include <stdlib.h>
 
 // Our includes
 #include "Utils.h"
 #include "DDSScheduler.h"
+#include "Server.h"
 
 using namespace std;
-using namespace mesos;
 using namespace DDSMesos::Common;
+
 
 // Use unnamed namespaces in C++ to prevent exporting the symbols
 namespace {
     string master = "localhost:5050";
-
 
     bool processArguments(int argc, char **argv) {
         // Options
@@ -42,7 +44,7 @@ namespace {
                     master = optarg;
                     break;
                 case 'h':
-                    help = 1;
+                    help = true;
                     break;
                 case ':':
                 case '?':
@@ -66,6 +68,7 @@ namespace {
 }
 
 int main(int argc, char **argv) {
+    using namespace mesos;
 
     // Process arguments
     if (processArguments(argc, argv)) {
@@ -88,6 +91,12 @@ int main(int argc, char **argv) {
     // Start Mesos without blocking this thread
     Status status = mesosSchedulerDriver->start();
 
+    // Start REST service
+    cout << "Waiting for REST" << endl;
+    DDSMesos::Server srv (*ddsScheduler);
+    srv.start();
+
+    //cout << Utils::decode64(Utils::encode64("Kevin")) << endl;
 
     // Wait for mesos
     mesosSchedulerDriver->join();

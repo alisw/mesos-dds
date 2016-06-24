@@ -17,6 +17,7 @@ enable_testing()
 #set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/latest")
 #set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/latest")
 #set(RESTBED_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/restbed/latest")
+#set(JSONBOX_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/jsonbox/latest")
 
 # A definition required by the BOOST Log module - will make Boost link dynamically
 add_definitions(-DBOOST_LOG_DYN_LINK)
@@ -77,6 +78,12 @@ find_path(RESTBED_INCDIR restbed
 find_library(RESTBED_LIBRARY restbed
         PATHS ${RESTBED_ROOT}/library NO_DEFAULT_PATH)
 
+# JsonBox
+find_path(JSONBOX_INCDIR JsonBox.h
+        PATHS ${JSONBOX_ROOT}/include NO_DEFAULT_PATH)
+find_library(JSONBOX_LIBRARY JsonBox
+        PATHS ${JSONBOX_ROOT}/lib NO_DEFAULT_PATH)
+
 # Include directories for all targets
 # None are needed at the moment
 
@@ -110,14 +117,16 @@ target_link_libraries(mesos-dds
 )
 
 # dds-mesos-server executable target
-add_executable(dds-mesos-server DDSRestServer/main.cc)
+add_executable(dds-mesos-server DDSRestServer/main.cc DDSRestServer/Server.cpp)
 target_include_directories(dds-mesos-server PRIVATE
     ${RESTBED_INCDIR}
+    ${JSONBOX_INCDIR}
 )
 target_link_libraries(dds-mesos-server
     mesos-dds # Target link libraries linked in mesos-dds are linked here as well (includes too)
     dds-mesos-common
     ${RESTBED_LIBRARY}
+    ${JSONBOX_LIBRARY}
 )
 
 # dds-submit-mesos executable target
@@ -126,11 +135,13 @@ target_include_directories(dds-submit-mesos PRIVATE
     DDSPlugin
     ${DDS_INCDIR}
     ${RESTBED_INCDIR}
+    ${JSONBOX_INCDIR}
 )
 target_link_libraries(dds-submit-mesos
     ${DDS_LIBRARY}
     dds-mesos-common
     ${RESTBED_LIBRARY}
+    ${JSONBOX_LIBRARY}
 )
 
 # Installation options
