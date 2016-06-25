@@ -11,12 +11,8 @@
 #include <mesos/scheduler.hpp>
 #include <mesos/resources.hpp>
 
-struct DDSSubmitInfo {
-    uint32_t m_nInstances;          ///< Number of instances.
-    std::string m_cfgFilePath;      ///< Path to the configuration file.
-    std::string m_id;               ///< ID for communication with DDS commander.
-    std::string m_wrkPackagePath;   ///< A full path of the agent worker package, which needs to be deployed.
-};
+// Our includes
+#include "Structures.h"
 
 class DDSScheduler
   : public mesos::Scheduler
