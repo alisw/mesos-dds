@@ -5,6 +5,7 @@
 // System Includes
 #include <memory>
 #include <iostream>
+#include <stdexcept>
 
 // Restbed Includes
 #include <restbed>
@@ -14,9 +15,13 @@
 
 // Other Includes
 #include "Server.h"
+#include "Utils.h"
+#include "Constants.h"
 
 using namespace std;
 using namespace DDSMesos;
+using namespace DDSMesos::Common;
+//using namespace mesos;
 
 Server::Server(DDSScheduler &ddsScheduler)
     : ddsScheduler (ddsScheduler)
@@ -46,7 +51,7 @@ void Server::run() {
     statusResource->set_path("/status");
     statusResource->set_method_handler("GET", [this](const shared_ptr<Session> session) -> void {
         size_t numSubmissions = submissions.size();
-        string body = "{\"status\":\"{\"NumSubmissions\":\"" + to_string(numSubmissions) + "\"}\"}";
+        string body = "{\"status\":{\"NumSubmissions\":\"" + to_string(numSubmissions) + "\"}}";
         session->close(OK, body, {
                 { "Connection", "close" },
                 { "Content-Type", "application/json" },
@@ -69,18 +74,82 @@ void Server::run() {
         session->fetch(content_length, [&strBody]( const shared_ptr< Session > session, const restbed::Bytes & body ){
             strBody = string(reinterpret_cast<const char*>(body.data()), body.size());
         });
+        cout << "Received request" << endl;
 
         // Parse Json and get Object
+        string sError;
+        try
+        {
+            using namespace mesos;
+            using namespace JsonBox;
+            using namespace DDSMesos::Common::Constants::DDSConfInfo;
+            using namespace boost::filesystem;
 
-        // Add submission directly to Mesos
+            JsonBox::Value v;
+            v.loadFromString(strBody);
 
-        // Send back Id of submission
-        string sbody = "{\"id\":\"\"}";
-        session->close(OK, sbody, {
-                { "Connection", "close" },
-                { "Content-Type", "application/json" },
-                { "Content-Length", to_string(sbody.size()) }
-        });
+            const Object& ddsConfInf = v.getObject();
+            const Object& dockerContainer = ddsConfInf.at(Docker).getObject();
+            const Object& resources = ddsConfInf.at(Resources).getObject();
+
+            // Describe Resources per Task
+            mesos::Resources resourcesPerAgent = Resources::parse(
+                    "cpus:" + resources.at(CpusPerTask).getString() +
+                    ";mem:" + resources.at(MemorySizePerTask).getString()
+            ).get();
+
+            // Construct DDS Info object
+            //
+            DDSSubmitInfo ddsSubmitInfo;
+            ddsSubmitInfo.m_id = ddsConfInf.at(DDSSubmissionId).getString();
+            ddsSubmitInfo.m_nInstances = static_cast<uint32_t>(resources.at(NumAgents).getInteger());
+
+            // Create Name for worker package
+            path wrkPackageName (ddsConfInf.at(WorkerPackageName).getString());
+
+            // Create directory for ID
+            size_t id = getNextIdAndCommitSubmission();
+            path dir (to_string(id));
+            if (create_directory(dir)) {
+                throw runtime_error("Cannot create directory: " + dir.filename().string());
+            }
+
+            // Create Path for Worker Package
+            path wrkPackagePath ( dir / wrkPackageName);
+
+            ddsSubmitInfo.m_wrkPackagePath = wrkPackagePath.string();
+
+            // Decode data and put in File
+            Utils::writeToFile(wrkPackagePath.filename().string(), Utils::decode64(ddsConfInf.at(WorkerPackageData).getString()));
+
+            // We have all required info, submit to Mesos!
+            ddsScheduler.setFutureTaskContainerImage(dockerContainer.at(ImageName).getString());
+            ddsScheduler.setFutureWorkDirName(dockerContainer.at(TemporaryDirectoryName).getString());
+            ddsScheduler.addAgents(ddsSubmitInfo, resourcesPerAgent);
+
+            // Send back Id of submission
+            string sbody = "{\"id\":" + to_string(id) + "\"\"}";
+            session->close(OK, sbody, {
+                    { "Connection", "close" },
+                    { "Content-Type", "application/json" },
+                    { "Content-Length", to_string(sbody.size()) }
+            });
+        } catch (const out_of_range& ex) {
+            sError = "{\"error\":\"Exception: Malformed Request\"}";
+        } catch (const exception& ex) {
+            sError = "{\"error\":\"Exception:";
+            sError += ex.what();
+            sError += "\"}";
+        }
+
+        if (sError.length() > 0) {
+            cout << sError << endl;
+            session->close(BAD_REQUEST, sError, {
+                    {"Connection",     "close"},
+                    {"Content-Type",   "application/json"},
+                    {"Content-Length", to_string(sError.size())}
+            });
+        }
 
     });
 
@@ -98,7 +167,7 @@ void Server::setMesosHandler(void (*p_handler)(const DDSSubmitInfo &)) {
 }
 
 size_t Server::getNextId() {
-    lock_guard<mutex> lock(mtx);
+    lock_guard<recursive_mutex> lock(mtx);
     if (submissions.size() == 0) {
         return 1;
     }
@@ -128,3 +197,12 @@ size_t Server::getNextId() {
     // We're full up
     return 0;
 }
+
+size_t Server::getNextIdAndCommitSubmission() {
+    lock_guard<recursive_mutex> lock(mtx);
+    size_t id = getNextId();
+    submissions[id] = DDSSubmitInfo();
+    return id;
+}
+
+

@@ -10,6 +10,8 @@
 #include <map>
 #include <thread>
 
+// Boost Includes
+#include <boost/filesystem.hpp>
 
 // Other Incudes
 #include "Structures.h"
@@ -31,11 +33,12 @@ namespace DDSMesos {
     private:
         // Exploits
         size_t getNextId();
+        size_t getNextIdAndCommitSubmission();
         void run();
 
         DDSScheduler& ddsScheduler;
         std::thread t;
-        std::mutex mtx;
+        std::recursive_mutex mtx;
         SubType submissions;
         void (*handler)(const DDSSubmitInfo& submitInfo);
 

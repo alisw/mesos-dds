@@ -15,6 +15,8 @@ namespace DDSMesos {
             void setupLogging(const std::string& logFileName);
             std::string decode64(const std::string &val);
             std::string encode64(const std::string &val);
+            std::string readFromFile(const std::string& fileName);
+            void writeToFile(const std::string& fileName, const std::string& fileData);
         };
     }
 }

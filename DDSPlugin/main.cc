@@ -28,6 +28,7 @@
 #include "dds_intercom.h"
 #include "Utils.h"
 #include "Structures.h"
+#include "Constants.h"
 
 using namespace std;
 using namespace dds::intercom_api;
@@ -79,7 +80,8 @@ int main(int argc, char **argv) {
             ddsSubmitInfo.m_nInstances = submit.m_nInstances;
             ddsSubmitInfo.m_wrkPackagePath = submit.m_wrkPackagePath;
 
-            //ddsSubmitInfo.m_cfgFilePath = "/home/kevin/a.txt";
+            //
+            boost::filesystem::path ddsWorkerPackagePath(ddsSubmitInfo.m_wrkPackagePath);
 
             // Parse config file
             const size_t numLines = 7;
@@ -117,19 +119,49 @@ int main(int argc, char **argv) {
                 request->set_method("POST");
 
                 // Json
-                request->set_body("{client: 123}");
+                {
+                    using namespace JsonBox;
+                    using namespace DDSMesos::Common::Constants::DDSConfInfo;
+
+                    Object resources;
+                    resources[NumAgents] = Value(to_string(numAgents));
+                    resources[CpusPerTask] = Value(cpusPerTask);
+                    resources[MemorySizePerTask] = Value(memSizePerTask);
+
+                    Object dockerContainer;
+                    dockerContainer[ImageName] = Value(dockerAgentImage);
+                    dockerContainer[TemporaryDirectoryName] = Value(tempDirInContainer);
+
+                    Object ddsConfInf;
+                    ddsConfInf[DDSSubmissionId] = submit.m_id;
+                    ddsConfInf[Resources] = resources;
+                    ddsConfInf[Docker] = dockerContainer;
+                    ddsConfInf[WorkerPackageName] = ddsWorkerPackagePath.filename().string();
+                    ddsConfInf[WorkerPackageData] = Utils::encode64(Utils::readFromFile(ddsSubmitInfo.m_wrkPackagePath));
+
+                    request->set_body(Value(ddsConfInf).getToString());
+                }
 
                 shared_ptr<Response> response = Http::sync(request);
 
-                // Get Length
-                size_t content_length = 0;
-                response->get_header("Content-Length", content_length);
+                // Get response and process
+                if (response->get_status_code() == OK) {
+                    size_t content_length = 0;
+                    response->get_header("Content-Length", content_length);
 
-                // Fetch Data
-                Http::fetch(content_length, response);
+                    // Fetch Data
+                    Http::fetch(content_length, response);
 
-                // Get Body Data
-                string strBody = string( reinterpret_cast<const char*>(response->get_body().data()), response->get_body().size() );
+                    // Get Body Data
+                    string strBody = string(reinterpret_cast<const char *>(response->get_body().data()),
+                                            response->get_body().size());
+                    JsonBox::Value val;
+                    val.loadFromString(strBody);
+                    const JsonBox::Object &replyJson = val.getObject();
+                    cout << "OK. REST Server Submison Id: " << replyJson.at("Id") << endl;
+                } else {
+                    cout << "Request Failed - Did not submit" << endl;
+                }
             }
             // Call to stop waiting
             protocol.stop();
