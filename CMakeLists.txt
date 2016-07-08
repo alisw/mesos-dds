@@ -11,13 +11,13 @@ set(CMAKE_BUILD_TYPE DEBUG)
 enable_testing()
 
 # Some values defined for user friendly IDE use
-set(BOOST_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/boost/latest")
-set(DDS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/DDS/latest")
-set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/latest")
-set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/latest")
-set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/latest")
-set(RESTBED_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/restbed/latest")
-set(JSONBOX_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/jsonbox/latest")
+#set(BOOST_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/boost/latest")
+#set(DDS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/DDS/latest")
+#set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/latest")
+#set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/latest")
+#set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/latest")
+#set(RESTBED_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/restbed/latest")
+#set(JSONBOX_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/jsonbox/latest")
 
 # A definition required by the BOOST Log module - will make Boost link dynamically
 add_definitions(-DBOOST_LOG_DYN_LINK)
@@ -76,7 +76,7 @@ find_path(GLOG_INCDIR glog/logging.h
 find_path(RESTBED_INCDIR restbed
         PATHS ${RESTBED_ROOT}/include NO_DEFAULT_PATH)
 find_library(RESTBED_LIBRARY restbed
-        PATHS ${RESTBED_ROOT}/library NO_DEFAULT_PATH)
+        PATHS ${RESTBED_ROOT}/lib NO_DEFAULT_PATH)
 
 # JsonBox
 find_path(JSONBOX_INCDIR JsonBox.h
@@ -117,7 +117,7 @@ target_link_libraries(mesos-dds
 )
 
 # dds-mesos-server executable target
-add_executable(dds-mesos-server DDSRestServer/main.cc DDSRestServer/Server.cpp)
+add_executable(dds-mesos-server DDSRestServer/main.cc DDSRestServer/Server.cc)
 target_include_directories(dds-mesos-server PRIVATE
     ${RESTBED_INCDIR}
     ${JSONBOX_INCDIR}

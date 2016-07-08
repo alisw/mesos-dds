@@ -61,6 +61,9 @@ void Server::run() {
 
     shared_ptr<Resource> ddsSubmitResource = make_shared<Resource>();
     ddsSubmitResource->set_path("/dds-submit");
+    ddsSubmitResource->set_error_handler([](const int code, const exception& ex, const shared_ptr< Session > session) {
+        cout << "Internal Error: " << ex.what() << endl;
+    });
     ddsSubmitResource->set_method_handler("POST", [this](const shared_ptr<Session> session) -> void {
         // Get Request
         const shared_ptr<const Request> request = session->get_request();
@@ -71,7 +74,9 @@ void Server::run() {
 
         // Get Body Data
         string strBody;
+        cout << "Content-length body size: " << content_length << endl;
         session->fetch(content_length, [&strBody]( const shared_ptr< Session > session, const restbed::Bytes & body ){
+            cout << "Body Size: " << body.size() << endl;
             strBody = string(reinterpret_cast<const char*>(body.data()), body.size());
         });
         cout << "Received request" << endl;
@@ -85,10 +90,10 @@ void Server::run() {
             using namespace DDSMesos::Common::Constants::DDSConfInfo;
             using namespace boost::filesystem;
 
-            JsonBox::Value v;
-            v.loadFromString(strBody);
+            JsonBox::Value value;
+            value.loadFromString(strBody);
 
-            const Object& ddsConfInf = v.getObject();
+            const Object& ddsConfInf = value.getObject();
             const Object& dockerContainer = ddsConfInf.at(Docker).getObject();
             const Object& resources = ddsConfInf.at(Resources).getObject();
 
@@ -109,7 +114,7 @@ void Server::run() {
 
             // Create directory for ID
             size_t id = getNextIdAndCommitSubmission();
-            path dir (to_string(id));
+            path dir (string("./") + to_string(id));
             if (create_directory(dir)) {
                 throw runtime_error("Cannot create directory: " + dir.filename().string());
             }
@@ -122,7 +127,7 @@ void Server::run() {
             // Decode data and put in File
             Utils::writeToFile(wrkPackagePath.filename().string(), Utils::decode64(ddsConfInf.at(WorkerPackageData).getString()));
 
-            // We have all required info, submit to Mesos!
+            // We have all the required info, submit to Mesos!
             ddsScheduler.setFutureTaskContainerImage(dockerContainer.at(ImageName).getString());
             ddsScheduler.setFutureWorkDirName(dockerContainer.at(TemporaryDirectoryName).getString());
             ddsScheduler.addAgents(ddsSubmitInfo, resourcesPerAgent);
@@ -137,7 +142,7 @@ void Server::run() {
         } catch (const out_of_range& ex) {
             sError = "{\"error\":\"Exception: Malformed Request\"}";
         } catch (const exception& ex) {
-            sError = "{\"error\":\"Exception:";
+            sError = "{\"error\":\"Exception: ";
             sError += ex.what();
             sError += "\"}";
         }

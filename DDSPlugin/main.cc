@@ -112,11 +112,13 @@ int main(int argc, char **argv) {
             // Send Information through using REST endpoint
             {
                 using namespace restbed;
-                shared_ptr<Request> request = make_shared<Request>( Uri( restHost + "/dds-submit" ) );
+
+                shared_ptr<Request> request = make_shared<Request>( Uri( string("http://") + restHost + "/dds-submit" ) );
                 request->set_header( "Accept", "application/json" );
                 request->set_header( "Content-Type", "application/json" );
                 request->set_header( "Host", restHost );
                 request->set_method("POST");
+                string strBody;
 
                 // Json
                 {
@@ -137,9 +139,14 @@ int main(int argc, char **argv) {
                     ddsConfInf[Resources] = resources;
                     ddsConfInf[Docker] = dockerContainer;
                     ddsConfInf[WorkerPackageName] = ddsWorkerPackagePath.filename().string();
-                    ddsConfInf[WorkerPackageData] = Utils::encode64(Utils::readFromFile(ddsSubmitInfo.m_wrkPackagePath));
+                    ddsConfInf[WorkerPackageData] = (Utils::readFromFile("/home/kevin/inputData.txt"));
 
-                    request->set_body(Value(ddsConfInf).getToString());
+                    ostringstream body;
+                    Value(ddsConfInf).writeToStream(body, false);
+                    strBody = body.str();
+                    Utils::writeToFile("/home/kevin/MYFILE.txt", strBody);
+                    request->set_header("Content-Length", to_string(strBody.length()));
+                    request->set_body(strBody);
                 }
 
                 shared_ptr<Response> response = Http::sync(request);
@@ -158,9 +165,18 @@ int main(int argc, char **argv) {
                     JsonBox::Value val;
                     val.loadFromString(strBody);
                     const JsonBox::Object &replyJson = val.getObject();
-                    cout << "OK. REST Server Submison Id: " << replyJson.at("Id") << endl;
+                    BOOST_LOG_TRIVIAL(trace) << "OK. REST Server Submison Id: " << replyJson.at("Id") << endl;
                 } else {
-                    cout << "Request Failed - Did not submit" << endl;
+                    size_t content_length = 0;
+                    response->get_header("Content-Length", content_length);
+
+                    // Fetch Data
+                    Http::fetch(content_length, response);
+
+                    // Get Body Data
+                    string strBody = string(reinterpret_cast<const char *>(response->get_body().data()),
+                                            response->get_body().size());
+                    throw runtime_error("Request Failed - Did not submit: " + strBody);
                 }
             }
             // Call to stop waiting
@@ -177,7 +193,7 @@ int main(int argc, char **argv) {
         protocol.start();
 
     } catch (const exception &e) {
-        BOOST_LOG_TRIVIAL(error) << "DDS-Intercom Exception: " << e.what() << endl;
+        BOOST_LOG_TRIVIAL(error) << "Mesos DDS-Intercom Exception: " << e.what() << endl;
         // Report error to DDS commander
         protocol.sendMessage(dds::intercom_api::EMsgSeverity::error, e.what());
     }
