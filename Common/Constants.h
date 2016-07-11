@@ -10,6 +10,7 @@
 namespace DDSMesos {
     namespace Common {
         namespace Constants {
+
             namespace DDSConfInfo {
                 extern std::string DDSSubmissionId;
                 extern std::string Resources;
@@ -22,6 +23,12 @@ namespace DDSMesos {
                 extern std::string WorkerPackageName;
                 extern std::string WorkerPackageData;
             }
+
+            namespace Status {
+                extern std::string Status;
+                extern std::string NumSubmissions;
+            }
+
         };
     }
 }

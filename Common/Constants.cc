@@ -19,3 +19,8 @@ string DDSConfInfo::ImageName = "ImageName";
 string DDSConfInfo::TemporaryDirectoryName = "TemporaryDirectoryName";
 string DDSConfInfo::WorkerPackageName = "WorkerPackageName";
 string DDSConfInfo::WorkerPackageData = "WorkerPackageData";
+
+// Status
+
+string Status::Status = "Status";
+string Status::NumSubmissions = "NumSubmissions";

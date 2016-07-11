@@ -13,6 +13,9 @@
 // Boost Includes
 #include <boost/filesystem.hpp>
 
+// CppRestSDK (Casablanca)
+#include <cpprest/http_listener.h>
+
 // Other Incudes
 #include "Structures.h"
 #include "DDSScheduler.h"
@@ -24,20 +27,21 @@ namespace DDSMesos {
         // Types
         using SubType = std::map<size_t, DDSSubmitInfo>;
 
-        Server(DDSScheduler& ddsScheduler);
+        Server(DDSScheduler& ddsScheduler, const std::string& host);
         ~Server();
 
-        bool start();
+        void run();
         void setMesosHandler(void p_handler(const DDSSubmitInfo& submitInfo));
 
     private:
         // Exploits
         size_t getNextId();
         size_t getNextIdAndCommitSubmission();
-        void run();
+        bool removeSubmission(size_t id);
 
         DDSScheduler& ddsScheduler;
-        std::thread t;
+        web::http::experimental::listener::http_listener statusListener;
+        web::http::experimental::listener::http_listener ddsSubmitListener;
         std::recursive_mutex mtx;
         SubType submissions;
         void (*handler)(const DDSSubmitInfo& submitInfo);

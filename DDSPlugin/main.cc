@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <thread>
 #include <fstream>
+#include <stdexcept>
 
 #include <string>
 #include <sstream>
@@ -16,11 +17,9 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/filesystem.hpp>
 
-// Restbed includes
-#include <restbed>
-
-// JsonBox Includes
-#include "JsonBox.h"
+// CppRestSDK (Casablanca)
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
 
 //#include <boost/property_tree/json_parser.hpp>
 //#include <boost/signals2/signal.hpp>
@@ -61,8 +60,11 @@ int main(int argc, char **argv) {
     CRMSPluginProtocol protocol("mesos");
 
     try {
-        
+
         protocol.onSubmit([&protocol](const SSubmit &submit) {
+
+            std::atomic_bool error ( false );
+
             // Implement submit related functionality here.
             // After submit has completed call stop() function.
 
@@ -111,74 +113,57 @@ int main(int argc, char **argv) {
 
             // Send Information through using REST endpoint
             {
-                using namespace restbed;
+                using namespace web;
+                using namespace web::http;
+                using namespace web::http::client;
 
-                shared_ptr<Request> request = make_shared<Request>( Uri( string("http://") + restHost + "/dds-submit" ) );
-                request->set_header( "Accept", "application/json" );
-                request->set_header( "Content-Type", "application/json" );
-                request->set_header( "Host", restHost );
-                request->set_method("POST");
-                string strBody;
+                http_client client (string("http://") + restHost + "/dds-submit" );
+
+                json::value ddsConfInf;
 
                 // Json
                 {
-                    using namespace JsonBox;
                     using namespace DDSMesos::Common::Constants::DDSConfInfo;
 
-                    Object resources;
-                    resources[NumAgents] = Value(to_string(numAgents));
-                    resources[CpusPerTask] = Value(cpusPerTask);
-                    resources[MemorySizePerTask] = Value(memSizePerTask);
+                    json::value resources;
+                    resources[NumAgents] = json::value::number(numAgents);
+                    resources[CpusPerTask] = json::value::string(cpusPerTask);
+                    resources[MemorySizePerTask] = json::value::string(memSizePerTask);
 
-                    Object dockerContainer;
-                    dockerContainer[ImageName] = Value(dockerAgentImage);
-                    dockerContainer[TemporaryDirectoryName] = Value(tempDirInContainer);
+                    json::value dockerContainer;
+                    dockerContainer[ImageName] = json::value::string(dockerAgentImage);
+                    dockerContainer[TemporaryDirectoryName] = json::value::string(tempDirInContainer);
 
-                    Object ddsConfInf;
-                    ddsConfInf[DDSSubmissionId] = submit.m_id;
+                    ddsConfInf[DDSSubmissionId] = json::value::string(submit.m_id);
                     ddsConfInf[Resources] = resources;
                     ddsConfInf[Docker] = dockerContainer;
-                    ddsConfInf[WorkerPackageName] = ddsWorkerPackagePath.filename().string();
-                    ddsConfInf[WorkerPackageData] = (Utils::readFromFile("/home/kevin/inputData.txt"));
-
-                    ostringstream body;
-                    Value(ddsConfInf).writeToStream(body, false);
-                    strBody = body.str();
-                    Utils::writeToFile("/home/kevin/MYFILE.txt", strBody);
-                    request->set_header("Content-Length", to_string(strBody.length()));
-                    request->set_body(strBody);
+                    ddsConfInf[WorkerPackageName] = json::value::string(ddsWorkerPackagePath.filename().string());
+                    ddsConfInf[WorkerPackageData] = json::value::string(Utils::encode64(Utils::readFromFile(ddsSubmitInfo.m_wrkPackagePath)));
                 }
 
-                shared_ptr<Response> response = Http::sync(request);
-
-                // Get response and process
-                if (response->get_status_code() == OK) {
-                    size_t content_length = 0;
-                    response->get_header("Content-Length", content_length);
-
-                    // Fetch Data
-                    Http::fetch(content_length, response);
-
-                    // Get Body Data
-                    string strBody = string(reinterpret_cast<const char *>(response->get_body().data()),
-                                            response->get_body().size());
-                    JsonBox::Value val;
-                    val.loadFromString(strBody);
-                    const JsonBox::Object &replyJson = val.getObject();
-                    BOOST_LOG_TRIVIAL(trace) << "OK. REST Server Submison Id: " << replyJson.at("Id") << endl;
-                } else {
-                    size_t content_length = 0;
-                    response->get_header("Content-Length", content_length);
-
-                    // Fetch Data
-                    Http::fetch(content_length, response);
-
-                    // Get Body Data
-                    string strBody = string(reinterpret_cast<const char *>(response->get_body().data()),
-                                            response->get_body().size());
-                    throw runtime_error("Request Failed - Did not submit: " + strBody);
-                }
+                // Make request
+                client.request(methods::POST, "", ddsConfInf).then([&error](http_response response) -> void {
+                    if (response.status_code() == status_codes::OK) {
+                        response.extract_json().then([&error](pplx::task<json::value> responseValue) -> void {
+                            try {
+                                BOOST_LOG_TRIVIAL(trace) << "OK. REST Server Submison Id: " << responseValue.get().at("Id") << endl;
+                            } catch (const exception& ex) {
+                                BOOST_LOG_TRIVIAL(trace) << "Malformed response from Server" << endl;
+                                error = true;
+                            }
+                        });
+                    } else {
+                        BOOST_LOG_TRIVIAL(trace) << "Request Failed - Did not submit" << endl;
+                        error = true;
+                    }
+                }).wait();
             }
+
+            // Check for any kind of errors
+            if (error) {
+                throw runtime_error("Some error occurred, check log!");
+            }
+
             // Call to stop waiting
             protocol.stop();
         });
@@ -186,7 +171,7 @@ int main(int argc, char **argv) {
         protocol.onMessage([](const SMessage &_message) {
             // Message from commander received.
             // Implement related functionality here.
-            BOOST_LOG_TRIVIAL(trace) << "DDS-Intercom onMessage:" << endl;
+            BOOST_LOG_TRIVIAL(trace) << "DDS-Intercom onMessage: " << _message.m_msg << endl;
         });
 
         // Let DDS commander know that we are online and wait for notifications from commander
