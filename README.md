@@ -48,25 +48,23 @@ Verify by executing 'dds-submit -l' and checking that 'mesos' is listed.
 ## Configuration File
 
 A configuration file is required for the plugin to run. The format of each line of the configuration file should be as follows:
-1) Mesos Master IP:Port
-2) Number of agents to deploy
-3) Docker image to use for the agents to run in
-4) Folder inside the docker image where to copy the DDS Worker Package
-5) Number of CPU Cores to utilise for each Agent
-6) The size of memory to use for each agent (in MegaBytes)
-7) The IP:Port of the Rest service api (the one given with the -r switch to the server)
+1. Mesos Master IP:Port
+2. Number of agents to deploy
+3. Docker image to use for the agents to run in
+4. Folder inside the docker image where to copy the DDS Worker Package
+5. Number of CPU Cores to utilise for each Agent
+6. The size of memory to use for each agent (in MegaBytes)
+7. The IP:Port of the Rest service api (the one given with the -r switch to the server)
 
-An example configuration file looks like the following:
+An example configuration file (ignoring the bullet points) looks like the following:
 
->
-192.168.134.131:5050
-2
-ubuntu:14.04
-DDSEnvironment
-1
-512
-192.168.134.131:1234
->
+- 192.168.134.131:5050
+- 2
+- ubuntu:14.04
+- DDSEnvironment
+- 1
+- 512
+- 192.168.134.131:1234
 
 ## Run
 Finally, assuming a running DDS server, one can submit DDS agents using this plugin by doing:
