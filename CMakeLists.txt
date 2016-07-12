@@ -5,25 +5,16 @@ project(dds-submit-mesos)
 # Use C++11, enable all warnings and compile in debug mode
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 set(CMAKE_BUILD_TYPE DEBUG)
-#set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Enable Testing
 enable_testing()
-
-# Some values defined for user friendly IDE use
-#set(BOOST_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/boost/latest")
-#set(DDS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/DDS/latest")
-#set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/latest")
-#set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/latest")
-#set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/latest")
-#set(RESTBED_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/restbed/latest")
-#set(JSONBOX_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/jsonbox/latest")
 
 # A definition required by the BOOST Log module - will make Boost link dynamically
 add_definitions(-DBOOST_LOG_DYN_LINK)
 
 # Find the system thread library and place in CMAKE_THREAD_LIBS_INIT - To link later
-find_package (Threads)
+find_package(Threads)
+find_package(OpenSSL)
 
 # Select a specific Boost library, or use the default system one
 if(BOOST_ROOT)
@@ -54,7 +45,6 @@ find_path(MESOS_INCDIR mesos/mesos.hpp
         PATHS ${MESOS_ROOT}/include NO_DEFAULT_PATH)
 find_library(MESOS_LIBRARY mesos 
              PATHS ${MESOS_ROOT}/lib NO_DEFAULT_PATH)
-#message(${MESOS_INCDIR})
 
 # Proto buf
 find_path(PROTOBUF_INCDIR google/protobuf/stubs/common.h
@@ -72,23 +62,17 @@ find_library(DDS_LIBRARY dds_intercom_lib
 find_path(GLOG_INCDIR glog/logging.h
           PATHS ${GLOG_ROOT}/include NO_DEFAULT_PATH)
 
-# Restbed
-find_path(RESTBED_INCDIR restbed
-        PATHS ${RESTBED_ROOT}/include NO_DEFAULT_PATH)
-find_library(RESTBED_LIBRARY restbed
-        PATHS ${RESTBED_ROOT}/library NO_DEFAULT_PATH)
-
-# JsonBox
-find_path(JSONBOX_INCDIR JsonBox.h
-        PATHS ${JSONBOX_ROOT}/include NO_DEFAULT_PATH)
-find_library(JSONBOX_LIBRARY JsonBox
-        PATHS ${JSONBOX_ROOT}/lib NO_DEFAULT_PATH)
+# CPPRESTSDK (Casablanca)
+find_path(CPPRESTSDK_INCDIR cpprest/http_client.h
+        PATHS ${CPPRESTSDK_ROOT}/include NO_DEFAULT_PATH)
+find_library(CPPRESTSDK_LIBRARY cpprest
+        PATHS ${CPPRESTSDK_ROOT}/lib NO_DEFAULT_PATH)
 
 # Include directories for all targets
 # None are needed at the moment
 
 # Common functionality static library target
-add_library(dds-mesos-common STATIC Common Common/Utils.cc)
+add_library(dds-mesos-common STATIC Common Common/Utils.cc Common/Constants.cc)
 target_include_directories(dds-mesos-common PUBLIC
     Common
     ${BOOST_INCDIR}
@@ -117,16 +101,15 @@ target_link_libraries(mesos-dds
 )
 
 # dds-mesos-server executable target
-add_executable(dds-mesos-server DDSRestServer/main.cc DDSRestServer/Server.cpp)
+add_executable(dds-mesos-server DDSRestServer/main.cc DDSRestServer/Server.cc)
 target_include_directories(dds-mesos-server PRIVATE
-    ${RESTBED_INCDIR}
-    ${JSONBOX_INCDIR}
+    ${CPPRESTSDK_INCDIR}
 )
 target_link_libraries(dds-mesos-server
     mesos-dds # Target link libraries linked in mesos-dds are linked here as well (includes too)
     dds-mesos-common
-    ${RESTBED_LIBRARY}
-    ${JSONBOX_LIBRARY}
+    ${CPPRESTSDK_LIBRARY}
+    ${OPENSSL_LIBRARIES}
 )
 
 # dds-submit-mesos executable target
@@ -134,14 +117,13 @@ add_executable(dds-submit-mesos DDSPlugin/main.cc)
 target_include_directories(dds-submit-mesos PRIVATE
     DDSPlugin
     ${DDS_INCDIR}
-    ${RESTBED_INCDIR}
-    ${JSONBOX_INCDIR}
+    ${CPPRESTSDK_INCDIR}
 )
 target_link_libraries(dds-submit-mesos
     ${DDS_LIBRARY}
     dds-mesos-common
-    ${RESTBED_LIBRARY}
-    ${JSONBOX_LIBRARY}
+    ${CPPRESTSDK_LIBRARY}
+    ${OPENSSL_LIBRARIES}
 )
 
 # Installation options

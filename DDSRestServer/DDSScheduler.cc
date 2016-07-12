@@ -229,6 +229,7 @@ void DDSScheduler::addAgents(const DDSSubmitInfo& submit, const Resources& resou
             << " && mkdir " << workDirectoryName
             << " && cd " << workDirectoryName
             << " && cp " << submit.m_wrkPackagePath << " ."
+            << " && chmod u+x " << strWorkPackageFileName
             << " && ./" << strWorkPackageFileName;
 
         // Set command

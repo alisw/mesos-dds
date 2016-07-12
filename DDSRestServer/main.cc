@@ -26,11 +26,13 @@ using namespace DDSMesos::Common;
 // Use unnamed namespaces in C++ to prevent exporting the symbols
 namespace {
     string master = "localhost:5050";
+    string restHost = "localhost:1234";
 
     bool processArguments(int argc, char **argv) {
         // Options
         struct option options[] = {
                 {"master", required_argument, nullptr, 'm'},
+                {"resthost", required_argument, nullptr, 'r'},
                 {"help",   no_argument,       nullptr, 'h'},
                 {nullptr, 0,                  nullptr, 0} // Last entry must be all zeros
         };
@@ -42,6 +44,9 @@ namespace {
             switch (c) {
                 case 'm':
                     master = optarg;
+                    break;
+                case 'r':
+                    restHost = optarg;
                     break;
                 case 'h':
                     help = true;
@@ -59,6 +64,7 @@ namespace {
         if (help || master.length() == 0) {
             cout << "Usage:" << endl
             << "\t--master=[ip:port], current: " << master << endl
+            << "\t--resthost=[ip:port], current: " << restHost << endl
             << "\t--help (Shows this Usage Information)" << endl;
             return true;
         }
@@ -72,34 +78,35 @@ int main(int argc, char **argv) {
 
     // Process arguments
     if (processArguments(argc, argv)) {
-        return EXIT_SUCCESS;
+        return 0;
     }
 
-    // Setup Logging
-    Utils::setupLogging("dds-mesos-server.log");
+    try {
+        // Setup Logging
+        Utils::setupLogging("dds-mesos-server.log");
 
-    // Describe my mesos framework
-    FrameworkInfo frameworkInfo;
-    frameworkInfo.set_user("root");
-    frameworkInfo.set_name("Mesos DDS Framework");
-    frameworkInfo.set_principal("ddsframework");
+        // Describe my mesos framework
+        FrameworkInfo frameworkInfo;
+        frameworkInfo.set_user("root");
+        frameworkInfo.set_name("Mesos DDS Framework");
+        frameworkInfo.set_principal("ddsframework");
 
-    // Setup Mesos
-    unique_ptr<DDSScheduler> ddsScheduler (new DDSScheduler());
-    unique_ptr<MesosSchedulerDriver> mesosSchedulerDriver (new MesosSchedulerDriver(ddsScheduler.get(), frameworkInfo, master));
+        // Setup Mesos
+        unique_ptr<DDSScheduler> ddsScheduler (new DDSScheduler());
+        unique_ptr<MesosSchedulerDriver> mesosSchedulerDriver (new MesosSchedulerDriver(ddsScheduler.get(), frameworkInfo, master));
 
-    // Start Mesos without blocking this thread
-    Status status = mesosSchedulerDriver->start();
+        // Start Mesos without blocking this thread
+        Status status = mesosSchedulerDriver->start();
 
-    // Start REST service
-    cout << "Waiting for REST" << endl;
-    DDSMesos::Server srv (*ddsScheduler);
-    srv.start();
+        // Start REST service
+        DDSMesos::Server srv (*ddsScheduler, restHost);
+        srv.run();
 
-    //cout << Utils::decode64(Utils::encode64("Kevin")) << endl;
+        // Wait for mesos
+        mesosSchedulerDriver->join();
+    } catch (const exception& ex) {
+        BOOST_LOG_TRIVIAL(error) << "Exception: " << ex.what() << endl;
+    }
 
-    // Wait for mesos
-    mesosSchedulerDriver->join();
-
-    return EXIT_SUCCESS;
+    return 0;
 }

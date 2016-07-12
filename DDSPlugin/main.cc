@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <thread>
 #include <fstream>
+#include <stdexcept>
 
 #include <string>
 #include <sstream>
@@ -16,11 +17,9 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/filesystem.hpp>
 
-// Restbed includes
-#include <restbed>
-
-// JsonBox Includes
-#include "JsonBox.h"
+// CppRestSDK (Casablanca)
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
 
 //#include <boost/property_tree/json_parser.hpp>
 //#include <boost/signals2/signal.hpp>
@@ -28,6 +27,7 @@
 #include "dds_intercom.h"
 #include "Utils.h"
 #include "Structures.h"
+#include "Constants.h"
 
 using namespace std;
 using namespace dds::intercom_api;
@@ -60,8 +60,11 @@ int main(int argc, char **argv) {
     CRMSPluginProtocol protocol("mesos");
 
     try {
-        
+
         protocol.onSubmit([&protocol](const SSubmit &submit) {
+
+            std::atomic_bool error ( false );
+
             // Implement submit related functionality here.
             // After submit has completed call stop() function.
 
@@ -79,7 +82,8 @@ int main(int argc, char **argv) {
             ddsSubmitInfo.m_nInstances = submit.m_nInstances;
             ddsSubmitInfo.m_wrkPackagePath = submit.m_wrkPackagePath;
 
-            //ddsSubmitInfo.m_cfgFilePath = "/home/kevin/a.txt";
+            //
+            boost::filesystem::path ddsWorkerPackagePath(ddsSubmitInfo.m_wrkPackagePath);
 
             // Parse config file
             const size_t numLines = 7;
@@ -109,28 +113,58 @@ int main(int argc, char **argv) {
 
             // Send Information through using REST endpoint
             {
-                using namespace restbed;
-                shared_ptr<Request> request = make_shared<Request>( Uri( restHost + "/dds-submit" ) );
-                request->set_header( "Accept", "application/json" );
-                request->set_header( "Content-Type", "application/json" );
-                request->set_header( "Host", restHost );
-                request->set_method("POST");
+                using namespace web;
+                using namespace web::http;
+                using namespace web::http::client;
+
+                http_client client (string("http://") + restHost + "/dds-submit" );
+
+                json::value ddsConfInf;
 
                 // Json
-                request->set_body("{client: 123}");
+                {
+                    using namespace DDSMesos::Common::Constants::DDSConfInfo;
 
-                shared_ptr<Response> response = Http::sync(request);
+                    json::value resources;
+                    resources[NumAgents] = json::value::number(numAgents);
+                    resources[CpusPerTask] = json::value::string(cpusPerTask);
+                    resources[MemorySizePerTask] = json::value::string(memSizePerTask);
 
-                // Get Length
-                size_t content_length = 0;
-                response->get_header("Content-Length", content_length);
+                    json::value dockerContainer;
+                    dockerContainer[ImageName] = json::value::string(dockerAgentImage);
+                    dockerContainer[TemporaryDirectoryName] = json::value::string(tempDirInContainer);
 
-                // Fetch Data
-                Http::fetch(content_length, response);
+                    ddsConfInf[DDSSubmissionId] = json::value::string(submit.m_id);
+                    ddsConfInf[Resources] = resources;
+                    ddsConfInf[Docker] = dockerContainer;
+                    ddsConfInf[WorkerPackageName] = json::value::string(ddsWorkerPackagePath.filename().string());
+                    ddsConfInf[WorkerPackageData] = json::value::string(Utils::encode64(Utils::readFromFile(ddsSubmitInfo.m_wrkPackagePath)));
+                }
 
-                // Get Body Data
-                string strBody = string( reinterpret_cast<const char*>(response->get_body().data()), response->get_body().size() );
+                // Make request
+                client.request(methods::POST, "", ddsConfInf).then([&error](http_response response) -> void {
+                    if (response.status_code() == status_codes::OK) {
+                        response.extract_json().then([&error](pplx::task<json::value> responseValue) -> void {
+                            try {
+                                using namespace DDSMesos::Common::Constants::DDSConfInfoResponse;
+                                BOOST_LOG_TRIVIAL(trace) << "OK. REST Server Submison Id: " << responseValue.get().at(Id) << endl;
+                            } catch (const exception& ex) {
+                                BOOST_LOG_TRIVIAL(trace) << "Malformed response from Server" << endl;
+                                error = true;
+                            }
+                        });
+                    } else {
+                        BOOST_LOG_TRIVIAL(trace) << "Request Failed - Did not submit" << endl;
+                        error = true;
+                    }
+                }).wait();
             }
+
+            // Check for any kind of errors
+            if (error) {
+                throw runtime_error("Some error occurred, check log!");
+            }
+
             // Call to stop waiting
             protocol.stop();
         });
@@ -138,19 +172,19 @@ int main(int argc, char **argv) {
         protocol.onMessage([](const SMessage &_message) {
             // Message from commander received.
             // Implement related functionality here.
-            BOOST_LOG_TRIVIAL(trace) << "DDS-Intercom onMessage:" << endl;
+            BOOST_LOG_TRIVIAL(trace) << "DDS-Intercom onMessage: " << _message.m_msg << endl;
         });
 
         // Let DDS commander know that we are online and wait for notifications from commander
         protocol.start();
 
     } catch (const exception &e) {
-        BOOST_LOG_TRIVIAL(error) << "DDS-Intercom Exception: " << e.what() << endl;
+        BOOST_LOG_TRIVIAL(error) << "Mesos DDS-Intercom Exception: " << e.what() << endl;
         // Report error to DDS commander
         protocol.sendMessage(dds::intercom_api::EMsgSeverity::error, e.what());
     }
 
     BOOST_LOG_TRIVIAL(trace) << "Ready - Exiting Mesos DDS" << endl;
 
-    return EXIT_SUCCESS;
+    return 0;
 }

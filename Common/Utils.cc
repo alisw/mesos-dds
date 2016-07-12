@@ -8,6 +8,9 @@
 #include <pwd.h>
 #include <stdexcept>
 
+// Required for I/O
+#include <fstream>
+
 // Boost Includes
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
@@ -55,7 +58,7 @@ void Utils::setupLogging(const string& logFileName) {
 
 }
 
-std::string DDSMesos::Common::Utils::decode64(const std::string &val) {
+string Utils::decode64(const string &val) {
     using namespace boost::archive::iterators;
     using It = transform_width<binary_from_base64<std::string::const_iterator>, 8, 6>;
     return boost::algorithm::trim_right_copy_if(std::string(It(std::begin(val)), It(std::end(val))), [](char c) {
@@ -63,11 +66,33 @@ std::string DDSMesos::Common::Utils::decode64(const std::string &val) {
     });
 }
 
-std::string DDSMesos::Common::Utils::encode64(const std::string &val) {
+string Utils::encode64(const string &val) {
     using namespace boost::archive::iterators;
     using It = base64_from_binary<transform_width<std::string::const_iterator, 6, 8>>;
     auto tmp = std::string(It(std::begin(val)), It(std::end(val)));
     return tmp.append((3 - val.size() % 3) % 3, '=');
 }
 
+string Utils::readFromFile(const string &fileName) {
+    ifstream fStream (fileName);
 
+    // Get the size
+    fStream.seekg(0, ios::end);
+    size_t size = fStream.tellg();
+
+    // Contiguous storage is guaranteed in C++11
+    string buffer (size, ' ');
+
+    // Restore seek
+    fStream.seekg(0);
+
+    // write
+    fStream.read(&buffer[0], size);
+
+    return buffer;
+}
+
+void Utils::writeToFile(const std::string &fileName, const std::string& fileData) {
+    ofstream fStream (fileName);
+    fStream << fileData;
+}
