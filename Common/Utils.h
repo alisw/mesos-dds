@@ -21,7 +21,4 @@ namespace DDSMesos {
     }
 }
 
-
-
-
 #endif //DDS_SUBMIT_MESOS_UTILS_H

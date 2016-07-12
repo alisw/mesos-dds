@@ -146,7 +146,8 @@ int main(int argc, char **argv) {
                     if (response.status_code() == status_codes::OK) {
                         response.extract_json().then([&error](pplx::task<json::value> responseValue) -> void {
                             try {
-                                BOOST_LOG_TRIVIAL(trace) << "OK. REST Server Submison Id: " << responseValue.get().at("Id") << endl;
+                                using namespace DDSMesos::Common::Constants::DDSConfInfoResponse;
+                                BOOST_LOG_TRIVIAL(trace) << "OK. REST Server Submison Id: " << responseValue.get().at(Id) << endl;
                             } catch (const exception& ex) {
                                 BOOST_LOG_TRIVIAL(trace) << "Malformed response from Server" << endl;
                                 error = true;
@@ -185,5 +186,5 @@ int main(int argc, char **argv) {
 
     BOOST_LOG_TRIVIAL(trace) << "Ready - Exiting Mesos DDS" << endl;
 
-    return EXIT_SUCCESS;
+    return 0;
 }

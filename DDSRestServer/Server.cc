@@ -59,6 +59,7 @@ void Server::run() {
             try {
                 using namespace boost::filesystem;
                 using namespace DDSMesos::Common::Constants::DDSConfInfo;
+                using namespace DDSMesos::Common::Constants::DDSConfInfoResponse;
 
                 const json::value& jsonValue = taskValue.get();
 
@@ -107,7 +108,7 @@ void Server::run() {
 
                 // Reply
                 json::value responseValue;
-                responseValue["Id"] = json::value::number(id);
+                responseValue[Id] = json::value::number(id);
                 request.reply(status_codes::OK, responseValue);
             } catch (const exception& ex) {
                 if (id > 0) {
@@ -118,10 +119,6 @@ void Server::run() {
                 BOOST_LOG_TRIVIAL(error) << ex.what() << endl;
             }
         });
-//            request.reply(status_codes::OK);
-//            request.extract_string().then([](pplx::task<std::string> taskValue) -> void {
-//                cout << taskValue.get() << endl;
-//            });
     });
     ddsSubmitListener.open();
 }

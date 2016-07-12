@@ -8,7 +8,6 @@ using namespace std;
 using namespace DDSMesos::Common::Constants;
 
 // Definitions
-
 string DDSConfInfo::DDSSubmissionId = "DDSSubmissionId";
 string DDSConfInfo::Resources = "Resources";
 string DDSConfInfo::NumAgents = "NumAgents";
@@ -20,7 +19,9 @@ string DDSConfInfo::TemporaryDirectoryName = "TemporaryDirectoryName";
 string DDSConfInfo::WorkerPackageName = "WorkerPackageName";
 string DDSConfInfo::WorkerPackageData = "WorkerPackageData";
 
-// Status
+// Response
+string DDSConfInfoResponse::Id = "Id";
 
+// Status
 string Status::Status = "Status";
 string Status::NumSubmissions = "NumSubmissions";

@@ -5,20 +5,9 @@ project(dds-submit-mesos)
 # Use C++11, enable all warnings and compile in debug mode
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 set(CMAKE_BUILD_TYPE DEBUG)
-#set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Enable Testing
 enable_testing()
-
-# Some values defined for user friendly IDE use
-#set(BOOST_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/boost/latest")
-#set(DDS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/DDS/latest")
-#set(GLOG_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/glog/latest")
-#set(MESOS_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/mesos/latest")
-#set(PROTOBUF_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/protobuf/latest")
-#set(CPPRESTSDK_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/cpprestsdk/latest")
-##set(RESTBED_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/restbed/latest")
-##set(JSONBOX_ROOT "/home/kevin/DDSAli/sw/ubuntu1404_x86-64/jsonbox/latest")
 
 # A definition required by the BOOST Log module - will make Boost link dynamically
 add_definitions(-DBOOST_LOG_DYN_LINK)
@@ -56,7 +45,6 @@ find_path(MESOS_INCDIR mesos/mesos.hpp
         PATHS ${MESOS_ROOT}/include NO_DEFAULT_PATH)
 find_library(MESOS_LIBRARY mesos 
              PATHS ${MESOS_ROOT}/lib NO_DEFAULT_PATH)
-#message(${MESOS_INCDIR})
 
 # Proto buf
 find_path(PROTOBUF_INCDIR google/protobuf/stubs/common.h

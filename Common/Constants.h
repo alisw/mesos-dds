@@ -24,6 +24,10 @@ namespace DDSMesos {
                 extern std::string WorkerPackageData;
             }
 
+            namespace DDSConfInfoResponse {
+                extern std::string Id;
+            }
+
             namespace Status {
                 extern std::string Status;
                 extern std::string NumSubmissions;

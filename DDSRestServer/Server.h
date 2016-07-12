@@ -50,6 +50,4 @@ namespace DDSMesos {
 }
 
 
-
-
 #endif //DDS_SUBMIT_MESOS_SERVER_H
