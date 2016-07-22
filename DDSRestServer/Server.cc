@@ -28,7 +28,8 @@ using namespace DDSMesos::Common;
 Server::Server(DDSScheduler &ddsScheduler, const string& host)
     : ddsScheduler (ddsScheduler),
       statusListener (string("http://") + host + "/status"),
-      ddsSubmitListener (string("http://") + host + "/dds-submit")
+      ddsSubmitListener (string("http://") + host + "/dds-submit"),
+      wrkPackageListener (string("http://") + host + "/dds-work-package")
 { }
 
 Server::~Server() {}
@@ -49,6 +50,43 @@ void Server::run() {
     });
     statusListener.open();
 
+    // DDS Work Package Listener
+    wrkPackageListener.support(methods::GET, [this](http_request request) -> void {
+        using namespace DDSMesos::Common::Constants::Status;
+        //cout << "path: " << request.request_uri().path() << " resource Path: " << request.request_uri().resource().path() << endl;
+        auto vars = uri::split_query(request.request_uri().query());
+        auto id = vars.find("id");
+        if (id == end(vars)) {
+            BOOST_LOG_TRIVIAL(trace) << "No id" << endl;
+            request.reply(status_codes::BadRequest, "No id");
+            return;
+        }
+        size_t requestedId = atoi(id->second.c_str());
+        string workerPackagePath;
+        string workerPackageData;
+        boost::filesystem::path wrkPath;
+        try {
+            using namespace boost::filesystem;
+            {
+                lock_guard<recursive_mutex> lock(mtx);
+                const DDSSubmitInfo &submission = submissions.at(requestedId);
+                wrkPath = submission.m_wrkPackagePath;
+                wrkPath = path(to_string(requestedId)) / path(wrkPath.filename().string());
+                wrkPath = complete(wrkPath);
+                workerPackageData = Utils::readFromFile(wrkPath.string());
+            }
+            http_response response (status_codes::OK);
+            response.set_body(workerPackageData);
+            response.headers().add("Content-Disposition", "attachment; filename=\"" + wrkPath.filename().string() + "\"");
+            cout << "Serving request for id: " << requestedId << endl;
+            request.reply(response);
+        } catch (const exception& ex) {
+            request.reply(status_codes::NotFound, string("Not found or other error: ") + ex.what());
+            BOOST_LOG_TRIVIAL(error) << ex.what() << endl;
+        }
+    });
+    wrkPackageListener.open();
+
     // DDS Submit Listener
     ddsSubmitListener.support(methods::POST, [this](http_request request) -> void {
         // Get data from request
@@ -68,10 +106,10 @@ void Server::run() {
                 const json::object& resources = ddsConfInf.at(Resources).as_object();
 
                 // DDS Submit Info
-                DDSSubmitInfo ddsSubmitInfo;
+                DDSSubmitInfo& ddsSubmitInfo = getNextIdAndCommitSubmission();
+                id = ddsSubmitInfo.m_restId;
                 ddsSubmitInfo.m_id = ddsConfInf.at(DDSSubmissionId).as_string();
                 ddsSubmitInfo.m_nInstances = resources.at(NumAgents).as_number().to_uint32();
-
 
                 // Describe Resources per Task
                 mesos::Resources resourcesPerAgent = mesos::Resources::parse(
@@ -83,7 +121,6 @@ void Server::run() {
                 path wrkPackageName (ddsConfInf.at(WorkerPackageName).as_string());
 
                 // Create directory for ID
-                id = getNextIdAndCommitSubmission();
                 path dir (to_string(id));
                 if (exists(dir)) {
                     remove_all(dir);
@@ -97,6 +134,8 @@ void Server::run() {
                 wrkPackagePath = complete(wrkPackagePath);
 
                 ddsSubmitInfo.m_wrkPackagePath = wrkPackagePath.string();
+                ddsSubmitInfo.m_wrkPackageName = wrkPackageName.filename().string();
+                ddsSubmitInfo.m_wrkPackageUri  = wrkPackageListener.uri().to_string() + "?id=" + to_string(id);
 
                 // Decode data and put in File
                 Utils::writeToFile(ddsSubmitInfo.m_wrkPackagePath, Utils::decode64(ddsConfInf.at(WorkerPackageData).as_string()));
@@ -159,18 +198,14 @@ size_t Server::getNextId() {
     return 0;
 }
 
-size_t Server::getNextIdAndCommitSubmission() {
+DDSSubmitInfo& Server::getNextIdAndCommitSubmission() {
     lock_guard<recursive_mutex> lock(mtx);
     size_t id = getNextId();
-    submissions[id] = DDSSubmitInfo();
-    return id;
+    submissions[id].m_restId = id;
+    return submissions[id];
 }
 
 bool Server::removeSubmission(size_t id) {
     lock_guard<recursive_mutex> lock(mtx);
     return submissions.erase(id) == 1;
 }
-
-
-
-

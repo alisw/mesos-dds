@@ -38,7 +38,7 @@ using namespace DDSMesos::Common;
 namespace {
     const char* const defaultMaster = "localhost:5050";
     const char* const defaultRestHost = "localhost:80";
-    const char* const defaultDockerAgentImage = "ubuntu:14.04";
+    const char* const defaultDockerAgentImage = "";
     const char* const defaultTempDirInContainer = "DDSEnvironment";
     const int defaultCpusPerTask = 1;
     const int defaultMemSizePerTask = 1024;

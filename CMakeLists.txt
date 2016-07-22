@@ -17,56 +17,46 @@ find_package(Threads)
 find_package(OpenSSL)
 
 # Select a specific Boost library, or use the default system one
-if(BOOST_ROOT)
-    find_library(BOOST_SYSTEM_LIBRARY boost_system
-                 PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
-    find_library(BOOST_FILESYSTEM_LIBRARY boost_filesystem
-            PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
-    find_library(BOOST_THREAD_LIBRARY boost_thread
-            PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
-    find_library(BOOST_LOG_SETUP_LIBRARY boost_log_setup
-            PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
-    find_library(BOOST_LOG_LIBRARY boost_log
-            PATHS ${BOOST_ROOT}/lib NO_DEFAULT_PATH)
-else()
-    find_library(BOOST_SYSTEM_LIBRARY boost_system)
-    find_library(BOOST_FILESYSTEM_LIBRARY boost_filesystem)
-    find_library(BOOST_THREAD_LIBRARY boost_thread)
-    find_library(BOOST_LOG_SETUP_LIBRARY boost_log_setup)
-    find_library(BOOST_LOG_LIBRARY boost_log)
-endif()
-if(BOOST_ROOT)
-    find_path(BOOST_INCDIR boost/foreach.hpp
-            PATHS ${BOOST_ROOT}/include NO_DEFAULT_PATH)
-endif()
+find_library(BOOST_SYSTEM_LIBRARY boost_system
+             PATHS ${BOOST_ROOT}/lib)
+find_library(BOOST_FILESYSTEM_LIBRARY boost_filesystem
+        PATHS ${BOOST_ROOT}/lib)
+find_library(BOOST_THREAD_LIBRARY boost_thread
+        PATHS ${BOOST_ROOT}/lib)
+find_library(BOOST_LOG_SETUP_LIBRARY boost_log_setup
+        PATHS ${BOOST_ROOT}/lib)
+find_library(BOOST_LOG_LIBRARY boost_log
+        PATHS ${BOOST_ROOT}/lib)
+find_path(BOOST_INCDIR boost/foreach.hpp
+        PATHS ${BOOST_ROOT}/include)
 
 # Mesos
 find_path(MESOS_INCDIR mesos/mesos.hpp
-        PATHS ${MESOS_ROOT}/include NO_DEFAULT_PATH)
+        PATHS ${MESOS_ROOT}/include)
 find_library(MESOS_LIBRARY mesos 
-             PATHS ${MESOS_ROOT}/lib NO_DEFAULT_PATH)
+             PATHS ${MESOS_ROOT}/lib)
 
 # Proto buf
 find_path(PROTOBUF_INCDIR google/protobuf/stubs/common.h
-        PATHS ${PROTOBUF_ROOT}/include NO_DEFAULT_PATH)
+        PATHS ${PROTOBUF_ROOT}/include)
 find_library(PROTOBUF_LIBRARY protobuf
-             PATHS ${PROTOBUF_ROOT}/lib NO_DEFAULT_PATH)
+             PATHS ${PROTOBUF_ROOT}/lib)
 
 # DDS
 find_path(DDS_INCDIR dds_intercom.h
-        PATHS ${DDS_ROOT}/include NO_DEFAULT_PATH)
+        PATHS ${DDS_ROOT}/include)
 find_library(DDS_LIBRARY dds_intercom_lib
-          PATHS ${DDS_ROOT}/lib NO_DEFAULT_PATH)
+          PATHS ${DDS_ROOT}/lib)
 
 # Google Logs
 find_path(GLOG_INCDIR glog/logging.h
-          PATHS ${GLOG_ROOT}/include NO_DEFAULT_PATH)
+          PATHS ${GLOG_ROOT}/include)
 
 # CPPRESTSDK (Casablanca)
 find_path(CPPRESTSDK_INCDIR cpprest/http_client.h
-        PATHS ${CPPRESTSDK_ROOT}/include NO_DEFAULT_PATH)
+        PATHS ${CPPRESTSDK_ROOT}/include)
 find_library(CPPRESTSDK_LIBRARY cpprest
-        PATHS ${CPPRESTSDK_ROOT}/lib NO_DEFAULT_PATH)
+        PATHS ${CPPRESTSDK_ROOT}/lib)
 
 # Include directories for all targets
 # None are needed at the moment

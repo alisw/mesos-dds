@@ -198,39 +198,36 @@ void DDSScheduler::addAgents(const DDSSubmitInfo& submit, const Resources& resou
     lock_guard<std::mutex> lock(ddsMutex);
     BOOST_LOG_TRIVIAL(trace) << "Adding Agents from DDS-Submit" << endl;
 
-    // Paths
-    boost::filesystem::path workPackagePath (submit.m_wrkPackagePath);
-    const string strWorkPackageParentDirectory = workPackagePath.parent_path().string();
-    const string strWorkPackageFileName = workPackagePath.filename().string();
-
     // Docker Info
     ContainerInfo container;
     {
         container.set_type(ContainerInfo::DOCKER);
-
-        Volume * volume = container.add_volumes();
-        volume->set_host_path(strWorkPackageParentDirectory);
-        volume->set_container_path(strWorkPackageParentDirectory);
-        volume->set_mode(Volume_Mode::Volume_Mode_RO);
 
         ContainerInfo::DockerInfo dockerInfo;
         dockerInfo.set_image(containerImageName);
         container.mutable_docker()->CopyFrom(dockerInfo);
     }
 
+    CommandInfo_URI cUri;
+    cUri.set_cache(false);
+    cUri.set_extract(false);
+    cUri.set_executable(true);
+    cUri.set_value(submit.m_wrkPackageUri);
+
     // Either execute command or executor
     CommandInfo commandInfo;
+    commandInfo.add_uris()->MergeFrom(cUri);
     {
         ostringstream ostr;
 
         // Copy worker package in a temporary directory
         ostr
-            << "cd /"
+            << " cd $MESOS_SANDBOX && pwd"
+            << " && mv $(a=" << submit.m_wrkPackageUri << ";a=${a##*/};echo $a) " << submit.m_wrkPackageName
             << " && mkdir " << workDirectoryName
             << " && cd " << workDirectoryName
-            << " && cp " << submit.m_wrkPackagePath << " ."
-            << " && chmod u+x " << strWorkPackageFileName
-            << " && ./" << strWorkPackageFileName;
+            << " && mv ../" << submit.m_wrkPackageName << " ."
+            << " && ./" << submit.m_wrkPackageName;
 
         // Set command
         commandInfo.set_value(ostr.str());
@@ -239,10 +236,12 @@ void DDSScheduler::addAgents(const DDSSubmitInfo& submit, const Resources& resou
     for (size_t i = 1; i <= submit.m_nInstances; ++i) {
         TaskInfo taskInfo;
 
-        taskInfo.set_name(string("DDS Framework Task #") + to_string(i));
-        taskInfo.mutable_task_id()->set_value(to_string(i));
+        taskInfo.set_name("DDS Framework Task");
+        taskInfo.mutable_task_id()->set_value(string("dds-") + submit.m_id + "-r-" + to_string(submit.m_restId) + "-t-" + to_string(i));
         taskInfo.mutable_resources()->MergeFrom(resourcesPerAgent);
-        taskInfo.mutable_container()->MergeFrom(container);
+        if (!containerImageName.empty()) {
+            taskInfo.mutable_container()->MergeFrom(container);
+        }
         taskInfo.mutable_command()->MergeFrom(commandInfo);
 
         waitingTasks.push_back(taskInfo);

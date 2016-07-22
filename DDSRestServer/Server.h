@@ -36,12 +36,13 @@ namespace DDSMesos {
     private:
         // Exploits
         size_t getNextId();
-        size_t getNextIdAndCommitSubmission();
+        DDSSubmitInfo& getNextIdAndCommitSubmission();
         bool removeSubmission(size_t id);
 
         DDSScheduler& ddsScheduler;
         web::http::experimental::listener::http_listener statusListener;
         web::http::experimental::listener::http_listener ddsSubmitListener;
+        web::http::experimental::listener::http_listener wrkPackageListener;
         std::recursive_mutex mtx;
         SubType submissions;
         void (*handler)(const DDSSubmitInfo& submitInfo);
