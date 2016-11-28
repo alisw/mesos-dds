@@ -17,30 +17,69 @@ find_package(Threads)
 find_package(OpenSSL)
 
 # Select a specific Boost library, or use the default system one
-find_library(BOOST_SYSTEM_LIBRARY boost_system
-             PATHS ${BOOST_ROOT}/lib)
-find_library(BOOST_FILESYSTEM_LIBRARY boost_filesystem
-        PATHS ${BOOST_ROOT}/lib)
-find_library(BOOST_THREAD_LIBRARY boost_thread
-        PATHS ${BOOST_ROOT}/lib)
-find_library(BOOST_LOG_SETUP_LIBRARY boost_log_setup
-        PATHS ${BOOST_ROOT}/lib)
-find_library(BOOST_LOG_LIBRARY boost_log
-        PATHS ${BOOST_ROOT}/lib)
-find_path(BOOST_INCDIR boost/foreach.hpp
-        PATHS ${BOOST_ROOT}/include)
+if(DEFINED BOOST_ROOT)
+  find_library(BOOST_SYSTEM_LIBRARY boost_system
+               PATHS ${BOOST_ROOT}/lib
+               NO_DEFAULT_PATH)
+  find_library(BOOST_FILESYSTEM_LIBRARY boost_filesystem
+               PATHS ${BOOST_ROOT}/lib
+               NO_DEFAULT_PATH)
+  find_library(BOOST_THREAD_LIBRARY boost_thread
+               PATHS ${BOOST_ROOT}/lib
+               NO_DEFAULT_PATH)
+  find_library(BOOST_LOG_SETUP_LIBRARY boost_log_setup
+               PATHS ${BOOST_ROOT}/lib
+               NO_DEFAULT_PATH)
+  find_library(BOOST_LOG_LIBRARY boost_log
+               PATHS ${BOOST_ROOT}/lib
+               NO_DEFAULT_PATH)
+  find_path(BOOST_INCDIR boost/foreach.hpp
+            PATHS ${BOOST_ROOT}/include
+            NO_DEFAULT_PATH)
+else()
+  find_library(BOOST_SYSTEM_LIBRARY boost_system
+               PATHS ${BOOST_ROOT}/lib)
+  find_library(BOOST_FILESYSTEM_LIBRARY boost_filesystem
+               PATHS ${BOOST_ROOT}/lib)
+  find_library(BOOST_THREAD_LIBRARY boost_thread
+               PATHS ${BOOST_ROOT}/lib)
+  find_library(BOOST_LOG_SETUP_LIBRARY boost_log_setup
+          PATHS ${BOOST_ROOT}/lib)
+  find_library(BOOST_LOG_LIBRARY boost_log
+               PATHS ${BOOST_ROOT}/lib)
+  find_path(BOOST_INCDIR boost/foreach.hpp
+            PATHS ${BOOST_ROOT}/include)
+endif()
 
 # Mesos
-find_path(MESOS_INCDIR mesos/mesos.hpp
-        PATHS ${MESOS_ROOT}/include)
-find_library(MESOS_LIBRARY mesos 
-             PATHS ${MESOS_ROOT}/lib)
+if(DEFINED MESOS_ROOT)
+  find_path(MESOS_INCDIR mesos/mesos.hpp
+          PATHS ${MESOS_ROOT}/include
+          NO_DEFAULT_PATH)
+  find_library(MESOS_LIBRARY mesos
+               PATHS ${MESOS_ROOT}/lib
+               NO_DEFAULT_PATH)
+else()
+  find_path(MESOS_INCDIR mesos/mesos.hpp
+          PATHS ${MESOS_ROOT}/include)
+  find_library(MESOS_LIBRARY mesos
+               PATHS ${MESOS_ROOT}/lib)
+endif()
 
 # Proto buf
-find_path(PROTOBUF_INCDIR google/protobuf/stubs/common.h
-        PATHS ${PROTOBUF_ROOT}/include)
-find_library(PROTOBUF_LIBRARY protobuf
-             PATHS ${PROTOBUF_ROOT}/lib)
+if(DEFINED PROTOBUF_ROOT)
+  find_path(PROTOBUF_INCDIR google/protobuf/stubs/common.h
+            PATHS ${PROTOBUF_ROOT}/include
+            NO_DEFAULT_PATH)
+  find_library(PROTOBUF_LIBRARY protobuf
+               PATHS ${PROTOBUF_ROOT}/lib 
+               NO_DEFAULT_PATH)
+else()
+  find_path(PROTOBUF_INCDIR google/protobuf/stubs/common.h
+            PATHS ${PROTOBUF_ROOT}/include)
+  find_library(PROTOBUF_LIBRARY protobuf
+               PATHS ${PROTOBUF_ROOT}/lib)
+endif()
 
 # DDS
 find_path(DDS_INCDIR dds_intercom.h
